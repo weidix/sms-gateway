@@ -91,7 +91,7 @@
 </div>
 
 <!-- Main Container -->
-<div class="min-h-screen w-screen flex items-center justify-center bg-gray-50 dark:bg-zinc-900 transition-colors duration-300 px-4 sm:px-6 lg:px-8">
+<div class="min-h-screen w-screen flex items-start justify-center lg:items-center bg-gray-50 dark:bg-zinc-900 transition-colors duration-300 px-4 sm:px-6 lg:px-8 py-10 sm:py-12 lg:py-0">
 
     <!-- Login Form -->
     <form
