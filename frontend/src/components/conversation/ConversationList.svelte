@@ -14,6 +14,8 @@
   import { generateUUID } from "../../js/uuid";
   import { simCards } from "../../stores/simcards";
 
+  let { onConversationSelect = () => {} } = $props();
+
   const SmsStatus = {
     Unread: 0,
     Read: 1,
@@ -59,6 +61,7 @@
 
   function conversationHandleClick(conversation) {
     changeCurrentConversation(conversation.contact);
+    onConversationSelect();
   }
 
   function createNewMessage() {
@@ -68,6 +71,7 @@
     if (existingNewMessage) {
       // Switch to the existing new message
       changeCurrentConversation(existingNewMessage.contact);
+      onConversationSelect();
       return;
     }
 
@@ -78,6 +82,7 @@
       name: "新信息",
       new: true,
     });
+    onConversationSelect();
   }
 
   function deleteConversationHandleClick(conversation) {
@@ -145,9 +150,9 @@
         {#if $conversationLoading}
           <!-- Loading skeleton -->
           {#each Array(5) as _}
-            <div class="flex items-center gap-3 p-3 rounded-lg animate-pulse">
-              <div class="w-10 h-10 bg-gray-200 dark:bg-zinc-700 rounded-lg"></div>
-              <div class="flex-1 space-y-2">
+            <div class="flex items-center gap-2 p-2 rounded-lg animate-pulse">
+              <div class="w-8 h-8 bg-gray-200 dark:bg-zinc-700 rounded-lg"></div>
+              <div class="flex-1 space-y-1.5">
                 <div class="h-3 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
                 <div class="h-2.5 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
               </div>
@@ -169,17 +174,17 @@
               }}
             >
               <div
-                class="flex items-center gap-3 p-3 rounded-lg transition-all duration-200 border
+                class="flex items-center gap-2 p-2 rounded-lg transition-all duration-200 border
                        {$currentContact?.id === conversation.contact.id
                          ? 'bg-gray-100 dark:bg-zinc-800 border-gray-300 dark:border-zinc-600'
                          : 'border-transparent hover:bg-gray-50 dark:hover:bg-zinc-800/50'}"
               >
                 <!-- Avatar with Icon -->
                 <div class="relative flex-shrink-0">
-                  <div class="w-10 h-10 rounded-lg bg-gray-800 dark:bg-gray-300 flex items-center justify-center">
+                  <div class="w-8 h-8 rounded-lg bg-gray-800 dark:bg-gray-300 flex items-center justify-center">
                     <Icon 
                       icon="carbon:user-avatar" 
-                      class="w-5 h-5 text-gray-200 dark:text-gray-700"
+                      class="w-4 h-4 text-gray-200 dark:text-gray-700"
                     />
                   </div>
                   
@@ -197,22 +202,22 @@
                 <div class="flex-1 min-w-0">
                   <!-- Name and Time -->
                   <div class="flex items-center justify-between mb-1">
-                    <h3 class="font-medium text-sm text-gray-800 dark:text-gray-200 truncate pr-2">
+                    <h3 class="font-medium text-[13px] text-gray-800 dark:text-gray-200 truncate pr-2">
                       {conversation.contact.name}
                     </h3>
                     {#if !conversation.contact.new && conversation.sms_preview?.timestamp}
-                      <span class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                      <span class="text-[11px] text-gray-500 dark:text-gray-400 flex-shrink-0">
                         {formatDate(conversation.sms_preview.timestamp)}
                       </span>
                     {/if}
                   </div>
 
                   <!-- Preview Message and SIM Badge -->
-                  <div class="flex items-center gap-2">
+                  <div class="flex items-center gap-1.5">
                     {#if conversation.sms_preview}
                       <!-- SIM Card Badge -->
                       <span 
-                        class="inline-flex items-center px-1.5 py-0.5 text-[10px] rounded font-medium
+                        class="inline-flex items-center px-1.5 py-0.5 text-[11px] rounded font-medium
                                bg-gray-200 dark:bg-zinc-700 text-gray-600 dark:text-gray-400
                                flex-shrink-0"
                       >
@@ -220,11 +225,11 @@
                       </span>
                       
                       <!-- Message Content -->
-                      <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-1 flex-1">
+                      <p class="text-[12px] text-gray-500 dark:text-gray-400 line-clamp-1 flex-1">
                         {conversation.sms_preview.message}
                       </p>
                     {:else}
-                      <span class="text-xs text-gray-400 dark:text-gray-500 italic">
+                      <span class="text-[12px] text-gray-400 dark:text-gray-500 italic">
                         {conversation.contact.new ? 'New conversation' : 'No messages'}
                       </span>
                     {/if}

@@ -105,7 +105,7 @@
         out:fade={{ duration: 150 }}
     >
         <!-- SIM Card Header - Always visible -->
-        <div class="flex justify-between items-center mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 bg-gray-900 dark:bg-gray-100 rounded-lg flex items-center justify-center">
                     <Icon
@@ -150,38 +150,40 @@
         </div>
         
         <!-- SIM Information Content -->
-        {#if showSkeleton || (isLoading && !simInfo) || isRefreshing}
-            <!-- Skeleton loading state -->
-            <div 
-                class="grid grid-cols-1 md:grid-cols-2 gap-6 h-[22rem]"
-                in:fade={{ duration: 200 }}
-            >
-                <SimCardBasicInfoSkeleton />
-                <SimCardTechnicalInfoSkeleton />
-            </div>
-        {:else if simInfo}
-            <!-- Actual content -->
-            <div
-                class="grid grid-cols-1 md:grid-cols-2 gap-6 h-[22rem]"
-                in:fade={{ delay: 100, duration: 300 }}
-            >
-                <SimCardBasicInfo
-                    {simCard}
-                    {simInfo}
-                    {onUpdatePhone}
-                    {onUpdateAlias}
+        <div class="overflow-y-auto max-h-[60vh] sm:max-h-none">
+            {#if showSkeleton || (isLoading && !simInfo) || isRefreshing}
+                <!-- Skeleton loading state -->
+                <div 
+                    class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 min-h-[18rem]"
+                    in:fade={{ duration: 200 }}
+                >
+                    <SimCardBasicInfoSkeleton />
+                    <SimCardTechnicalInfoSkeleton />
+                </div>
+            {:else if simInfo}
+                <!-- Actual content -->
+                <div
+                    class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6"
+                    in:fade={{ delay: 100, duration: 300 }}
+                >
+                    <SimCardBasicInfo
+                        {simCard}
+                        {simInfo}
+                        {onUpdatePhone}
+                        {onUpdateAlias}
+                    />
+                    <SimCardTechnicalInfo {simInfo} />
+                </div>
+            {:else}
+                <!-- Error state -->
+                <EmptyState
+                    title="No Data Available"
+                    description="Unable to load information for this SIM card."
+                    showRetry={true}
+                    onRetry={onRefresh}
                 />
-                <SimCardTechnicalInfo {simInfo} />
-            </div>
-        {:else}
-            <!-- Error state -->
-            <EmptyState
-                title="No Data Available"
-                description="Unable to load information for this SIM card."
-                showRetry={true}
-                onRetry={onRefresh}
-            />
-        {/if}
+            {/if}
+        </div>
     </div>
 {:else}
     <EmptyState

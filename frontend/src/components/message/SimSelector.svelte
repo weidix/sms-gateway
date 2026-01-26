@@ -78,8 +78,8 @@
 
 <div class="relative" use:clickOutside>
   <div
-    class="relative transition-all duration-300 ease-out"
-    style="width: {showSimSelector ? '320px' : '180px'};"
+    class="relative transition-all duration-300 ease-out w-full sm:w-auto sm:max-w-[320px]"
+    style={`width: ${showSimSelector ? 'min(320px, 100%)' : 'min(200px, 100%)'};`}
   >
     {#if expandedContent}
       <!-- 向上弹出的内容 -->
@@ -88,7 +88,7 @@
         transition:fly={{ y: 100, duration: 200, easing: quintOut }}
       >
         <div
-          class="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 border-b-0 rounded-t-xl overflow-hidden shadow-lg"
+          class="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 border-b-0 rounded-t-xl overflow-hidden shadow-lg max-h-[70vh]"
         >
           <!-- 标题栏 -->
           <div
@@ -139,7 +139,7 @@
           </div>
 
           <!-- SIM 卡列表 -->
-          <div class="max-h-56 overflow-y-auto scrollbar-thin">
+          <div class="max-h-56 overflow-y-auto scrollbar-thin sm:max-h-64">
             <div class="py-1">
               {#each filteredSimCards as sim (sim.id)}
                 {@const isSelected = sim.id === selectedSim?.id}

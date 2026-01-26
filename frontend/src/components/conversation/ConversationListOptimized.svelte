@@ -167,21 +167,21 @@
       <div class="space-y-1">
         {#if $conversationLoading}
           <!-- Loading skeleton -->
-          {#each Array(5) as _}
-            <div class="flex items-center gap-2.5 p-2.5 rounded-lg animate-pulse">
-              <div class="w-8 h-8 bg-gray-200 dark:bg-zinc-700 rounded-full"></div>
-              <div class="flex-1 space-y-1.5">
-                <div class="h-3 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
-                <div class="h-2.5 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
-              </div>
-              <div class="w-10 h-2.5 bg-gray-200 dark:bg-zinc-700 rounded"></div>
+        {#each Array(5) as _}
+          <div class="flex items-center gap-2 p-2 rounded-lg animate-pulse">
+            <div class="w-7 h-7 bg-gray-200 dark:bg-zinc-700 rounded-full"></div>
+            <div class="flex-1 space-y-1">
+              <div class="h-3 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
+              <div class="h-2.5 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
             </div>
-          {/each}
-        {:else}
-          {#each filteredConversations as conversation (conversation.contact.id)}
-            <div
-              animate:flip={{ duration: 300, easing: cubicOut }}
-              transition:fade={{ duration: 200 }}
+            <div class="w-10 h-2.5 bg-gray-200 dark:bg-zinc-700 rounded"></div>
+          </div>
+        {/each}
+      {:else}
+        {#each filteredConversations as conversation (conversation.contact.id)}
+          <div
+            animate:flip={{ duration: 300, easing: cubicOut }}
+            transition:fade={{ duration: 200 }}
               class="conversation-item relative group cursor-pointer focus:outline-none"
               role="button"
               tabindex="0"
@@ -193,14 +193,14 @@
               }}
             >
               <div
-                class="flex items-center gap-2.5 p-2.5 rounded-lg transition-colors duration-200 border
+                class="flex items-center gap-2 p-2 rounded-lg transition-colors duration-200 border
                        {$currentContact?.id === conversation.contact.id
                          ? 'bg-gray-200 dark:bg-zinc-700 border-gray-300 dark:border-zinc-600'
                          : 'border-transparent hover:bg-gray-50 dark:hover:bg-zinc-800/50 hover:border-gray-200 dark:hover:border-zinc-700'}"
               >
                 <!-- Avatar -->
                 <div class="relative flex-shrink-0">
-                  <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-medium text-xs
+                  <div class="w-7 h-7 rounded-full flex items-center justify-center text-white font-medium text-[11px]
                               {getAvatarColor(conversation.contact.name)}">
                     {getInitials(conversation.contact.name)}
                   </div>
@@ -219,12 +219,12 @@
                 <!-- Content -->
                 <div class="flex-1 min-w-0">
                   <!-- Name and Time -->
-                  <div class="flex items-center justify-between mb-0.5">
-                    <h3 class="font-medium text-sm text-gray-700 dark:text-gray-200 truncate pr-2">
+                  <div class="flex items-center justify-between mb-0.5 gap-1">
+                    <h3 class="font-medium text-[13px] text-gray-700 dark:text-gray-200 truncate pr-1">
                       {conversation.contact.name}
                     </h3>
                     {#if !conversation.contact.new}
-                      <div class="text-xs text-gray-400 dark:text-zinc-500 flex-shrink-0">
+                      <div class="text-[11px] text-gray-400 dark:text-zinc-500 flex-shrink-0">
                         {#if conversation.sms_preview?.timestamp}
                           <span>{formatDate(conversation.sms_preview.timestamp)}</span>
                         {:else}
@@ -236,12 +236,12 @@
 
                   <!-- Preview Message and Time for new items -->
                   <div class="flex items-start justify-between">
-                    <div class="flex items-center gap-1.5 flex-1 min-w-0">
+                    <div class="flex items-center gap-1 flex-1 min-w-0">
                       {#if conversation.sms_preview}
                         <!-- SIM Card Badge -->
                         <div class="flex-shrink-0 flex items-center">
                           <span 
-                            class="inline-flex items-center px-2 py-1 text-xs rounded-md font-medium shadow-sm transition-colors duration-300 leading-none
+                            class="inline-flex items-center px-1.5 py-0.5 text-[11px] rounded-md font-medium shadow-sm transition-colors duration-300 leading-none
                                    {$currentContact?.id === conversation.contact.id
                                      ? 'bg-gray-400 dark:bg-zinc-600 text-white'
                                      : 'bg-gray-200 dark:bg-zinc-700 text-gray-600 dark:text-zinc-400'}"

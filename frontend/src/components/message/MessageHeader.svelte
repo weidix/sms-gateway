@@ -29,8 +29,8 @@
 </script>
 
 <header
-  class="bg-gray-100/70 dark:bg-zinc-900/70 backdrop-blur-md p-2 h-12 flex items-center
-   text-sm transition-colors duration-300 absolute top-0 left-0 right-0 z-10"
+  class="bg-white/90 dark:bg-zinc-900/90 p-2 h-12 flex items-center
+   text-sm transition-colors duration-300 sticky top-0 z-10 border-b border-gray-200/60 dark:border-zinc-800/60"
   class:text-gray-600={showNewMessage}
   class:text-gray-400={!showNewMessage}
   class:dark:text-gray-200={showNewMessage}
