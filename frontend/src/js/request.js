@@ -79,6 +79,7 @@ class Fetch {
             .then(response => {
                 if (response.status === 401) {
                     localStorage.removeItem("auth");
+                    sessionStorage.removeItem("auth");
                     window.location.reload(); 
                 }
                 return response;
@@ -89,11 +90,14 @@ class Fetch {
 
     _getAuthHeader() {
         const auth = sessionStorage.getItem("auth");
-        if (auth) {
+        if (!auth) return {};
+
+        try {
             const { token } = JSON.parse(auth);
-            return { 'Authorization': `Basic ${token}` };
+            return token ? { 'Authorization': `Basic ${token}` } : {};
+        } catch (_) {
+            return {};
         }
-        return {};
     }    /**
      * @param {string} partialUrl
      * @param {Record<string, string | number>} query

@@ -27,6 +27,7 @@
   let pageSize = $state(9999999);
   let showLoading = $state(true);
   let loadingTimer = null;
+  let messageInputComponent = $state(null);
   let prevConversationId = null;
   let messageContainer = $state(null);
   let isNewMessage = $state(false);
@@ -87,10 +88,16 @@
   });
 
   function handleAddContact() {
+    const trimmed = concatInputText.trim();
+    if (!trimmed) return;
+
     isAddingContact = true;
-    conactAddFinish(concatInputText);
-    concatInputText = "";
+    conactAddFinish(trimmed);
+    concatInputText = trimmed;
     isAddingContact = false;
+    setTimeout(() => {
+      messageInputComponent?.focusInput?.();
+    }, 0);
   }
 
   function handleConcatInputTextChange(newText) {
@@ -256,6 +263,7 @@
     {showNewMessage}
     {concatInputText}
     onSend={handleSendMessage}
+    bind:this={messageInputComponent}
   />
 
   

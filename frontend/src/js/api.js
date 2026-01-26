@@ -15,6 +15,7 @@ class ApiClient {
         } catch (error) {
             if (error.status === 401) {
                 localStorage.removeItem('auth');
+                sessionStorage.removeItem('auth');
                 window.location.reload();
             }
             return false;
@@ -105,4 +106,3 @@ class ApiClient {
 
 // Export as a singleton
 export const apiClient = new ApiClient();
-
