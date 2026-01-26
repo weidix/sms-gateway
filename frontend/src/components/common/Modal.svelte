@@ -20,7 +20,7 @@
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
-        class="fixed inset-0 flex items-center justify-center
+        class="fixed inset-0 flex items-center justify-center px-0 sm:px-0
          bg-zinc-100 dark:bg-zinc-800 bg-opacity-50 dark:bg-opacity-30 z-50 backdrop-blur-md"
         transition:fade={{ duration: 200 }}
         onclick={(e) => {
@@ -32,7 +32,7 @@
         tabindex="0"
     >
         <div
-            class="bg-zinc-100 dark:bg-zinc-800 rounded-lg shadow-xl w-4/5 {maxWidth} max-h-[90vh] flex flex-col {className}"
+            class="bg-zinc-100 dark:bg-zinc-800 rounded-none sm:rounded-lg shadow-xl w-full sm:w-4/5 {maxWidth} h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] flex flex-col {className}"
             transition:fade={{ delay: 100, duration: 300, easing: cubicOut }}
         >
             {@render children?.()}

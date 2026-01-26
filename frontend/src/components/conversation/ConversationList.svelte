@@ -14,6 +14,8 @@
   import { generateUUID } from "../../js/uuid";
   import { simCards } from "../../stores/simcards";
 
+  let { onConversationSelect = () => {} } = $props();
+
   const SmsStatus = {
     Unread: 0,
     Read: 1,
@@ -59,6 +61,7 @@
 
   function conversationHandleClick(conversation) {
     changeCurrentConversation(conversation.contact);
+    onConversationSelect();
   }
 
   function createNewMessage() {
@@ -68,6 +71,7 @@
     if (existingNewMessage) {
       // Switch to the existing new message
       changeCurrentConversation(existingNewMessage.contact);
+      onConversationSelect();
       return;
     }
 
@@ -78,6 +82,7 @@
       name: "新信息",
       new: true,
     });
+    onConversationSelect();
   }
 
   function deleteConversationHandleClick(conversation) {
