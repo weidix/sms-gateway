@@ -119,7 +119,7 @@
 <Modal {isOpen} {onClose}>
     <!-- Modal Header -->
     <div
-        class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-zinc-700"
+        class="flex justify-between items-center p-4 sm:p-6 border-b border-gray-200 dark:border-zinc-700"
     >
         <div class="flex items-center gap-3">
             <div class="w-8 h-8 bg-gray-900 dark:bg-gray-100 rounded-lg flex items-center justify-center">
@@ -148,7 +148,7 @@
     />
 
     <!-- Tab Content -->
-    <div class="flex-1 overflow-auto p-4">
+    <div class="flex-1 overflow-auto p-4 sm:p-6">
         <SimCardTabContent
             simCard={activeSimCard}
             simInfo={activeSimInfo}
