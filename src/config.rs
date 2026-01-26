@@ -178,16 +178,19 @@ fn test_config(app_config: &AppConfig) -> Result<()> {
     }
 
     // Validate DEVICES section
-    if app_config.devices.is_empty() {
-        anyhow::bail!("Fatal: No devices configured");
-    }
-    
-    for (index, device) in app_config.devices.iter().enumerate() {
-        if device.com_port.trim().is_empty() {
-            anyhow::bail!("Fatal: Device {} com_port is not set", index);
+    #[cfg(not(feature = "mock-data"))]
+    {
+        if app_config.devices.is_empty() {
+            anyhow::bail!("Fatal: No devices configured");
         }
-        if device.baud_rate == 0 {
-            anyhow::bail!("Fatal: Device {} baud_rate is not set", index);
+
+        for (index, device) in app_config.devices.iter().enumerate() {
+            if device.com_port.trim().is_empty() {
+                anyhow::bail!("Fatal: Device {} com_port is not set", index);
+            }
+            if device.baud_rate == 0 {
+                anyhow::bail!("Fatal: Device {} baud_rate is not set", index);
+            }
         }
     }
 

@@ -3,6 +3,10 @@ name = "sms-gateway"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+mock-data = []
+
 [profile.release]
 strip = true       
 lto = true        

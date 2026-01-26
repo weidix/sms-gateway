@@ -27,6 +27,7 @@
   let pageSize = $state(9999999);
   let showLoading = $state(true);
   let loadingTimer = null;
+  let messageInputComponent = $state(null);
   let prevConversationId = null;
   let messageContainer = $state(null);
   let isNewMessage = $state(false);
@@ -87,10 +88,16 @@
   });
 
   function handleAddContact() {
+    const trimmed = concatInputText.trim();
+    if (!trimmed) return;
+
     isAddingContact = true;
-    conactAddFinish(concatInputText);
-    concatInputText = "";
+    conactAddFinish(trimmed);
+    concatInputText = trimmed;
     isAddingContact = false;
+    setTimeout(() => {
+      messageInputComponent?.focusInput?.();
+    }, 0);
   }
 
   function handleConcatInputTextChange(newText) {
@@ -228,7 +235,10 @@
         bind:this={messageContainer}
         transition:fade={{ duration: loadingDuration }}
       >
-        <div class="flex flex-col-reverse gap-2 p-2 w-full mb-20 mt-12">
+        <div
+          class="flex flex-col-reverse gap-2 p-2 w-full mt-4 sm:mt-10 pb-24 sm:pb-24"
+          style="padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px));"
+        >
           {#each messages as message, index (message.id)}
             <MessageItem {message} {isNewMessage} />
             {@const timeHeader = formatTimeRange(
@@ -256,6 +266,7 @@
     {showNewMessage}
     {concatInputText}
     onSend={handleSendMessage}
+    bind:this={messageInputComponent}
   />
 
   
@@ -284,4 +295,5 @@
     height: 10rem;
     display: block;
   }
+
 </style>

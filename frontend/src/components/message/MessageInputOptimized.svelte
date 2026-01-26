@@ -13,6 +13,17 @@
   let isComposing = $state(false);
   let selectedSim = $state(null);
   let showConfirmDialog = $state(false);
+  let messageInputRef = $state(null);
+
+  export function focusInput() {
+    if (!messageInputRef || messageInputRef.disabled) return;
+
+    messageInputRef.focus();
+    messageInputRef.setSelectionRange?.(
+      messageInputRef.value.length,
+      messageInputRef.value.length
+    );
+  }
 
   function handleSendClick() {
     if (showNewMessage && !concatInputText.trim()) {
@@ -51,10 +62,10 @@
 </script>
 
 <div
-  class="absolute bottom-0 left-0 right-0 h-20 bg-gray-50/95 dark:bg-zinc-900/95 backdrop-blur-xl border-t border-gray-200 dark:border-zinc-700 z-10"
+  class="absolute bottom-0 left-0 right-0 bg-gray-50/95 dark:bg-zinc-900/95 backdrop-blur-xl border-t border-gray-200 dark:border-zinc-700 z-10"
 >
-  <div class="flex items-center gap-3 h-full pr-6 max-w-6xl mx-auto">
-    <div class="flex-1 flex items-center gap-3 relative">
+  <div class="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 sm:py-2 max-w-6xl mx-auto">
+    <div class="flex-1 flex items-center gap-3 relative w-full">
       <div
         class="flex-1 transition-all duration-300 ease-out relative"
         class:opacity-50={showNewMessage && !concatInputText.trim()}
@@ -68,6 +79,7 @@
           <input
             type="text"
             bind:value={sendMessageContent}
+            bind:this={messageInputRef}
             oncompositionstart={() => (isComposing = true)}
             oncompositionend={() => (isComposing = false)}
             onkeydown={handleKeyDown}
@@ -81,25 +93,25 @@
       </div>
     </div>
 
-    <div class="h-6 border-l border-gray-300 dark:border-zinc-600"></div>
-
-    <SimSelector bind:selectedSim />
-    
-    <div class="h-6 border-l border-gray-300 dark:border-zinc-600"></div>
-
-    <button
-      onclick={handleSendClick}
-      disabled={(showNewMessage && !concatInputText.trim()) || !sendMessageContent.trim()}
-      class="flex items-center gap-2 px-5 h-12 rounded-lg font-medium text-sm transition-all duration-200 {(showNewMessage && !concatInputText.trim()) || !sendMessageContent.trim()
-        ? 'bg-gray-200 dark:bg-zinc-700 text-gray-600 dark:text-gray-500 cursor-not-allowed opacity-50'
-        : 'bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-200 active:scale-[0.98] cursor-pointer'}"
-    >
-      <Icon
-        icon="carbon:send-filled"
-        class="w-5 h-5"
-      />
-      <span>Send</span>
-    </button>
+    <div class="flex flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+      <div class="w-full sm:w-[180px] flex-1">
+        <SimSelector bind:selectedSim />
+      </div>
+      
+      <button
+        onclick={handleSendClick}
+        disabled={(showNewMessage && !concatInputText.trim()) || !sendMessageContent.trim()}
+        class="flex items-center justify-center gap-2 px-4 sm:px-5 h-12 rounded-lg font-medium text-sm transition-all duration-200 w-auto sm:w-auto min-w-[110px] {(showNewMessage && !concatInputText.trim()) || !sendMessageContent.trim()
+          ? 'bg-gray-200 dark:bg-zinc-700 text-gray-600 dark:text-gray-500 cursor-not-allowed opacity-50'
+          : 'bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-200 active:scale-[0.98] cursor-pointer'}"
+      >
+        <Icon
+          icon="carbon:send-filled"
+          class="w-5 h-5"
+        />
+        <span>Send</span>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -179,7 +191,7 @@
       </div>
 
       <!-- 操作按钮 -->
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
           onclick={cancelSend}
           class="px-5 py-3 bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-300 font-medium text-sm rounded-lg border border-gray-300 dark:border-zinc-600 transition-all duration-200 hover:bg-gray-50 dark:hover:bg-zinc-700 hover:border-gray-400 dark:hover:border-zinc-500"
