@@ -13,6 +13,17 @@
   let isComposing = $state(false);
   let selectedSim = $state(null);
   let showConfirmDialog = $state(false);
+  let messageInputRef = $state(null);
+
+  export function focusInput() {
+    if (!messageInputRef || messageInputRef.disabled) return;
+
+    messageInputRef.focus();
+    messageInputRef.setSelectionRange?.(
+      messageInputRef.value.length,
+      messageInputRef.value.length
+    );
+  }
 
   function handleSendClick() {
     if (showNewMessage && !concatInputText.trim()) {
@@ -68,6 +79,7 @@
           <input
             type="text"
             bind:value={sendMessageContent}
+            bind:this={messageInputRef}
             oncompositionstart={() => (isComposing = true)}
             oncompositionend={() => (isComposing = false)}
             onkeydown={handleKeyDown}

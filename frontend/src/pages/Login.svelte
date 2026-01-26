@@ -1,5 +1,6 @@
 <script>
     import Icon from "@iconify/svelte";
+    import { onMount } from "svelte";
     import { fade, fly } from 'svelte/transition'; 
     import { quintOut } from 'svelte/easing';
     import { updateStorageValue } from '../js/storage';
@@ -9,6 +10,15 @@
     let error = "";
     let isLoading = false;
     let showPassword = false;
+    let rememberMe = false;
+
+    onMount(() => {
+        const rememberedUsername = localStorage.getItem("auth_username");
+        if (rememberedUsername) {
+            username = rememberedUsername;
+            rememberMe = true;
+        }
+    });
 
     const handleSubmit = (/** @type {{ preventDefault: () => void; }} */ e) => {
         e.preventDefault();
@@ -41,6 +51,9 @@
                         username,
                         token: authToken,
                     });
+                    rememberMe
+                        ? localStorage.setItem("auth_username", username)
+                        : localStorage.removeItem("auth_username");
                     window.location.reload();
                     break;
 
@@ -129,9 +142,15 @@
                         </div>
                         <input
                             id="username"
+                            name="login-username"
                             type="text"
                             bind:value={username}
                             placeholder="Enter your username"
+                            autocomplete="off"
+                            autocapitalize="none"
+                            spellcheck="false"
+                            inputmode="text"
+                            aria-autocomplete="none"
                             class="w-full pl-11 pr-4 py-3 bg-white dark:bg-zinc-900
                                    border border-gray-300 dark:border-zinc-600 rounded-lg
                                    text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500
@@ -156,9 +175,13 @@
                         </div>
                         <input
                             id="password"
+                            name="login-password"
                             type={showPassword ? "text" : "password"}
                             bind:value={password}
                             placeholder="Enter your password"
+                            autocomplete="new-password"
+                            autocapitalize="none"
+                            spellcheck="false"
                             class="w-full pl-11 pr-12 py-3 bg-white dark:bg-zinc-900
                                    border border-gray-300 dark:border-zinc-600 rounded-lg
                                    text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500
@@ -172,7 +195,7 @@
                         <button
                             type="button"
                             onclick={togglePassword}
-                            class="absolute inset-y-0 right-0 pr-4 flex items-center"
+                            class="absolute inset-y-0 right-0 pr-4 flex items-center bg-transparent hover:bg-transparent focus:outline-none"
                             tabindex="-1"
                         >
                             <Icon 
@@ -184,10 +207,11 @@
                 </div>
 
                 <!-- Remember me -->
-                <div class="flex items-center">
-                    <label class="flex items-center gap-2 cursor-pointer">
+                <div class="flex items-center justify-between pt-2">
+                    <label class="flex items-center gap-2 cursor-pointer select-none">
                         <input 
                             type="checkbox" 
+                            bind:checked={rememberMe}
                             class="w-4 h-4 rounded border-gray-300 dark:border-zinc-600 
                                    text-gray-600 focus:ring-gray-500 dark:focus:ring-gray-400
                                    bg-white dark:bg-zinc-900"
@@ -219,44 +243,5 @@
             </button>
         </div>
 
-        <!-- Security Notice -->
-        <div class="mt-6 text-center">
-            <p class="text-xs text-gray-500 dark:text-gray-400 flex items-center justify-center gap-1.5">
-                <Icon icon="carbon:locked" class="w-3.5 h-3.5" />
-                <span>Secured with 256-bit encryption</span>
-            </p>
-        </div>
     </form>
 </div>
-
-<style>
-    /* Custom checkbox styling */
-    input[type="checkbox"] {
-        appearance: none;
-        -webkit-appearance: none;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 1rem;
-        height: 1rem;
-        border-radius: 0.25rem;
-        transition: all 0.15s;
-    }
-    
-    input[type="checkbox"]:checked {
-        background-color: rgb(75 85 99);
-        border-color: rgb(75 85 99);
-    }
-    
-    input[type="checkbox"]:checked::before {
-        content: "✓";
-        color: white;
-        font-size: 0.75rem;
-        font-weight: bold;
-    }
-
-    :global(.dark) input[type="checkbox"]:checked {
-        background-color: rgb(156 163 175);
-        border-color: rgb(156 163 175);
-    }
-</style>
