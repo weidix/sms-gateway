@@ -235,7 +235,10 @@
         bind:this={messageContainer}
         transition:fade={{ duration: loadingDuration }}
       >
-        <div class="flex flex-col-reverse gap-2 p-2 w-full mb-20 mt-12">
+        <div
+          class="flex flex-col-reverse gap-2 p-2 w-full mt-4 sm:mt-10 pb-24 sm:pb-24"
+          style="padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px));"
+        >
           {#each messages as message, index (message.id)}
             <MessageItem {message} {isNewMessage} />
             {@const timeHeader = formatTimeRange(
@@ -292,4 +295,5 @@
     height: 10rem;
     display: block;
   }
+
 </style>
