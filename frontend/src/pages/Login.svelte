@@ -91,17 +91,17 @@
 </div>
 
 <!-- Main Container -->
-<div class="min-h-screen w-screen flex items-start justify-center lg:items-center bg-gray-50 dark:bg-zinc-900 transition-colors duration-300 px-4 sm:px-6 lg:px-8 py-10 sm:py-12 lg:py-0">
+<div class="min-h-dvh w-screen flex items-center justify-center bg-gray-50 dark:bg-zinc-900 transition-colors duration-300 px-4 sm:px-6 lg:px-8 py-10 sm:py-12 lg:py-0">
 
     <!-- Login Form -->
     <form
-        class="relative w-full max-w-md mx-auto"
+        class="relative w-full max-w-md mx-auto -translate-y-4 sm:translate-y-0"
         onsubmit={handleSubmit}
         autocomplete="off"
         in:fly={{ y: 20, duration: 400, easing: quintOut }}
     >
         <!-- Card Container -->
-        <div class="bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-lg p-8 sm:p-10">
+        <div class="bg-transparent sm:bg-white dark:bg-transparent sm:dark:bg-zinc-800 border-0 sm:border border-gray-200 dark:border-zinc-700 rounded-none sm:rounded-lg shadow-none sm:shadow-lg p-4 sm:p-10">
             <!-- Header -->
             <div class="text-center mb-8">
                 <div class="w-16 h-16 bg-gray-900 dark:bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">

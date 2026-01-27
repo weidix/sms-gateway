@@ -1,6 +1,6 @@
 use crate::{config::WebhookConfig, db::ModemSMS, webhook::start_webhook_worker_with_concurrency};
 
-use chrono::{NaiveDateTime};
+use chrono::NaiveDateTime;
 use serde_json::json;
 use std::time::Duration;
 use wiremock::{
@@ -185,14 +185,14 @@ async fn test_contact_filter() {
     Mock::given(method("POST"))
         .and(path("/webhook"))
         .respond_with(ResponseTemplate::new(200))
-        .expect(1)  
+        .expect(1)
         .mount(&mock_server)
         .await;
 
     let webhook_manager = start_webhook_worker_with_concurrency(vec![config], 5);
 
     webhook_manager.send(matching_sms).unwrap();
-    webhook_manager.send(non_matching_sms).unwrap();  
+    webhook_manager.send(non_matching_sms).unwrap();
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 
@@ -233,7 +233,7 @@ async fn test_device_filter() {
     let webhook_manager = start_webhook_worker_with_concurrency(vec![config], 5);
 
     webhook_manager.send(matching_sms).unwrap();
-    webhook_manager.send(non_matching_sms).unwrap(); 
+    webhook_manager.send(non_matching_sms).unwrap();
 
     tokio::time::sleep(Duration::from_secs(1)).await;
     mock_server.verify().await;
@@ -247,7 +247,7 @@ async fn test_message_filter() {
 
     let matching_sms = ModemSMS {
         contact: "13800138000".to_string(),
-        message: "Test message content".to_string(), 
+        message: "Test message content".to_string(),
         timestamp: NaiveDateTime::parse_from_str("2025-05-23 15:00:00", "%Y-%m-%d %H:%M:%S")
             .unwrap(),
         send: false,
@@ -256,7 +256,7 @@ async fn test_message_filter() {
 
     let contains_ignore_sms = ModemSMS {
         contact: "13800138000".to_string(),
-        message: "Test message ignore content".to_string(), 
+        message: "Test message ignore content".to_string(),
         timestamp: NaiveDateTime::parse_from_str("2025-05-23 15:00:00", "%Y-%m-%d %H:%M:%S")
             .unwrap(),
         send: false,
@@ -265,7 +265,7 @@ async fn test_message_filter() {
 
     let regex_mismatch_sms = ModemSMS {
         contact: "13800138000".to_string(),
-        message: "Test message something".to_string(), 
+        message: "Test message something".to_string(),
         timestamp: NaiveDateTime::parse_from_str("2025-05-23 15:00:00", "%Y-%m-%d %H:%M:%S")
             .unwrap(),
         send: false,
@@ -282,8 +282,8 @@ async fn test_message_filter() {
     let webhook_manager = start_webhook_worker_with_concurrency(vec![config], 5);
 
     webhook_manager.send(matching_sms).unwrap();
-    webhook_manager.send(contains_ignore_sms).unwrap();  
-    webhook_manager.send(regex_mismatch_sms).unwrap();  
+    webhook_manager.send(contains_ignore_sms).unwrap();
+    webhook_manager.send(regex_mismatch_sms).unwrap();
 
     tokio::time::sleep(Duration::from_secs(1)).await;
     mock_server.verify().await;
@@ -299,7 +299,7 @@ async fn test_time_filter() {
         contact: "13800138000".to_string(),
         message: "Test message content".to_string(),
         timestamp: NaiveDateTime::parse_from_str("2025-05-23 15:00:00", "%Y-%m-%d %H:%M:%S")
-            .unwrap(), 
+            .unwrap(),
         send: false,
         sim_id: "test_sim_id".to_string(),
     };
@@ -317,7 +317,7 @@ async fn test_time_filter() {
         contact: "13800138000".to_string(),
         message: "Test message content".to_string(),
         timestamp: NaiveDateTime::parse_from_str("2025-05-24 10:00:00", "%Y-%m-%d %H:%M:%S")
-            .unwrap(), 
+            .unwrap(),
         send: false,
         sim_id: "test_sim_id".to_string(),
     };
@@ -325,15 +325,15 @@ async fn test_time_filter() {
     Mock::given(method("POST"))
         .and(path("/webhook"))
         .respond_with(ResponseTemplate::new(200))
-        .expect(1) 
+        .expect(1)
         .mount(&mock_server)
         .await;
 
     let webhook_manager = start_webhook_worker_with_concurrency(vec![config], 5);
 
     webhook_manager.send(working_hours_sms).unwrap();
-    webhook_manager.send(off_hours_sms).unwrap(); 
-    webhook_manager.send(weekend_sms).unwrap(); 
+    webhook_manager.send(off_hours_sms).unwrap();
+    webhook_manager.send(weekend_sms).unwrap();
 
     tokio::time::sleep(Duration::from_secs(1)).await;
     mock_server.verify().await;
@@ -343,7 +343,7 @@ async fn test_time_filter() {
 async fn test_include_self_sent_enabled() {
     let mock_server = MockServer::start().await;
     let webhook_url = format!("{}/webhook", mock_server.uri());
-    
+
     let toml = format!(
         r#"
 url = "{url}"
@@ -401,7 +401,7 @@ Content-Type = "application/json"
 async fn test_include_self_sent_disabled() {
     let mock_server = MockServer::start().await;
     let webhook_url = format!("{}/webhook", mock_server.uri());
-    
+
     let toml = format!(
         r#"
 url = "{url}"
@@ -454,7 +454,7 @@ Content-Type = "application/json"
 
     let webhook_manager = start_webhook_worker_with_concurrency(vec![config], 5);
 
-    webhook_manager.send(self_sent_sms).unwrap(); 
+    webhook_manager.send(self_sent_sms).unwrap();
     webhook_manager.send(received_sms).unwrap();
 
     tokio::time::sleep(Duration::from_secs(1)).await;
@@ -465,7 +465,7 @@ Content-Type = "application/json"
 async fn test_include_self_sent_default() {
     let mock_server = MockServer::start().await;
     let webhook_url = format!("{}/webhook", mock_server.uri());
-    
+
     let toml = format!(
         r#"
 url = "{url}"
@@ -517,7 +517,7 @@ Content-Type = "application/json"
 
     let webhook_manager = start_webhook_worker_with_concurrency(vec![config], 5);
 
-    webhook_manager.send(self_sent_sms).unwrap(); 
+    webhook_manager.send(self_sent_sms).unwrap();
     webhook_manager.send(received_sms).unwrap();
 
     tokio::time::sleep(Duration::from_secs(1)).await;
@@ -581,4 +581,3 @@ message = "@message@"
 
     mock_server.verify().await;
 }
-

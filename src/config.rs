@@ -33,9 +33,9 @@ pub struct Device {
 #[derive(Debug, Deserialize, Clone, Copy)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum SmsStorage {
-    SIM,  // Store on SIM card
-    ME,   // Store in module memory
-    MT,   // Use module default
+    SIM, // Store on SIM card
+    ME,  // Store in module memory
+    MT,  // Use module default
 }
 
 #[derive(Debug, Clone, PartialEq)]
