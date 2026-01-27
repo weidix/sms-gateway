@@ -10,9 +10,7 @@ use crate::config::{AppConfig, SmsStorage};
 use crate::db::{Contact, SimCard, Sms, SmsStatus};
 use crate::webhook;
 
-use super::types::{
-    ModemInfo, NetworkRegistrationStatus, OperatorInfo, SignalQuality, SmsType,
-};
+use super::types::{ModemInfo, NetworkRegistrationStatus, OperatorInfo, SignalQuality, SmsType};
 
 pub struct MockModem {
     pub com_port: String,
@@ -144,20 +142,8 @@ impl ModemManager {
                 "Hey, can you send the status report?",
                 sim_primary.clone(),
             ),
-            (
-                0,
-                true,
-                4,
-                "Sure, sending it now.",
-                sim_primary.clone(),
-            ),
-            (
-                1,
-                false,
-                12,
-                "Lunch at 12:30?",
-                sim_secondary.clone(),
-            ),
+            (0, true, 4, "Sure, sending it now.", sim_primary.clone()),
+            (1, false, 12, "Lunch at 12:30?", sim_secondary.clone()),
             (1, true, 10, "Sounds good.", sim_secondary.clone()),
             (
                 2,
@@ -218,7 +204,11 @@ impl ModemManager {
         Ok((sms_id, contact.id.clone()))
     }
 
-    pub async fn read_sms(&self, _sim_id: &str, _sms_type: SmsType) -> anyhow::Result<Vec<crate::db::ModemSMS>> {
+    pub async fn read_sms(
+        &self,
+        _sim_id: &str,
+        _sms_type: SmsType,
+    ) -> anyhow::Result<Vec<crate::db::ModemSMS>> {
         Ok(Vec::new())
     }
 
@@ -256,11 +246,15 @@ impl ModemManager {
         &self,
         _sim_id: &str,
     ) -> anyhow::Result<Option<NetworkRegistrationStatus>> {
-        Ok(NetworkRegistrationStatus::from_response("+CREG: 0,1,\"1A2B\",\"1A2B\""))
+        Ok(NetworkRegistrationStatus::from_response(
+            "+CREG: 0,1,\"1A2B\",\"1A2B\"",
+        ))
     }
 
     pub async fn check_operator(&self, _sim_id: &str) -> anyhow::Result<Option<OperatorInfo>> {
-        Ok(OperatorInfo::from_response("+COPS: 0,0,\"MockTel\",\"00101\""))
+        Ok(OperatorInfo::from_response(
+            "+COPS: 0,0,\"MockTel\",\"00101\"",
+        ))
     }
 
     pub async fn get_modem_model(&self, _sim_id: &str) -> anyhow::Result<Option<ModemInfo>> {
@@ -280,7 +274,9 @@ impl ModemManager {
     }
 
     pub async fn get_memory_status(&self, _sim_id: &str) -> anyhow::Result<Option<String>> {
-        Ok(Some("+CPMS: \"SM\",5,100,\"SM\",5,100,\"SM\",5,100".to_string()))
+        Ok(Some(
+            "+CPMS: \"SM\",5,100,\"SM\",5,100,\"SM\",5,100".to_string(),
+        ))
     }
 
     pub async fn get_temperature_info(&self, _sim_id: &str) -> anyhow::Result<Option<String>> {
@@ -296,7 +292,9 @@ impl ModemManager {
     }
 
     pub async fn get_sms_storage_status(&self, _sim_id: &str) -> anyhow::Result<Option<String>> {
-        Ok(Some("+CPMS: \"SM\",5,100,\"SM\",5,100,\"SM\",5,100".to_string()))
+        Ok(Some(
+            "+CPMS: \"SM\",5,100,\"SM\",5,100,\"SM\",5,100".to_string(),
+        ))
     }
 
     pub async fn get_sim_card_cached(&self, sim_id: &str) -> Option<SimCard> {

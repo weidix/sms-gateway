@@ -39,7 +39,10 @@ pub async fn run_update() -> Result<()> {
         return Ok(());
     }
 
-    println!("Update available: {} -> {}", current_version, latest_version);
+    println!(
+        "Update available: {} -> {}",
+        current_version, latest_version
+    );
     let asset = select_asset(&release.assets)?;
     println!("Downloading {}...", asset.name);
 
@@ -163,7 +166,10 @@ fn select_asset(assets: &[Asset]) -> Result<&Asset> {
 fn is_download_asset(name: &str) -> bool {
     let lower = name.to_lowercase();
     let blocked_suffixes = [".sha256", ".sha256sum", ".sig", ".asc", ".md5"];
-    if blocked_suffixes.iter().any(|suffix| lower.ends_with(suffix)) {
+    if blocked_suffixes
+        .iter()
+        .any(|suffix| lower.ends_with(suffix))
+    {
         return false;
     }
     !lower.contains("checksum")
@@ -286,10 +292,7 @@ fn find_binary(root: &Path) -> Result<PathBuf> {
     }
     collect_binaries(root, &names, &mut matches)?;
     match matches.len() {
-        0 => Err(anyhow!(
-            "could not find {} in extracted archive",
-            BIN_NAME
-        )),
+        0 => Err(anyhow!("could not find {} in extracted archive", BIN_NAME)),
         1 => Ok(matches.remove(0)),
         _ => Err(anyhow!(
             "multiple {} binaries found in extracted archive",

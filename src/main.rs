@@ -6,7 +6,7 @@ use flexi_logger::{
     colored_detailed_format, Age, Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming,
 };
 use log::LevelFilter;
-use modem::{SmsType, ModemManager};
+use modem::{ModemManager, SmsType};
 use structopt::StructOpt;
 
 mod api;
@@ -14,10 +14,10 @@ mod config;
 mod db;
 mod decode;
 mod modem;
-mod update;
-mod webhook;
 #[cfg(test)]
 mod tests;
+mod update;
+mod webhook;
 
 pub type ModemManagerRef = Arc<ModemManager>;
 
@@ -70,14 +70,16 @@ async fn main() {
             std::process::exit(1);
         }
     };
-    
+
     let sse_manager = Arc::new(api::SseManager::new());
 
-    let webhook_manager = match config.settings.webhooks.clone() { Some(cfgs) => {
-        Some(webhook::start_webhook_worker_with_concurrency(cfgs, config.settings.webhooks_max_concurrent.unwrap_or(1)))
-    } _ => {
-        None
-    }};
+    let webhook_manager = match config.settings.webhooks.clone() {
+        Some(cfgs) => Some(webhook::start_webhook_worker_with_concurrency(
+            cfgs,
+            config.settings.webhooks_max_concurrent.unwrap_or(1),
+        )),
+        _ => None,
+    };
 
     tokio::spawn(read_sms_worker(
         modem_manager.clone(),
@@ -94,7 +96,8 @@ async fn main() {
         &config.settings.password.unwrap(),
         sse_manager.clone(),
     )
-    .await {};
+    .await
+    {};
 }
 
 async fn read_sms_worker(
@@ -104,11 +107,13 @@ async fn read_sms_worker(
     webhook_manager: Option<webhook::WebhookManager>,
 ) {
     loop {
-        modem_manager.read_all_sms_async(
-            SmsType::RecUnread,
-            sse_manager.clone(),
-            webhook_manager.clone(),
-        ).await;
+        modem_manager
+            .read_all_sms_async(
+                SmsType::RecUnread,
+                sse_manager.clone(),
+                webhook_manager.clone(),
+            )
+            .await;
 
         tokio::time::sleep(tokio::time::Duration::from_secs(read_sms_frequency)).await;
     }
@@ -119,7 +124,7 @@ pub struct Param {
     #[structopt(subcommand)]
     pub command: Option<Command>,
 
-#[cfg(debug_assertions)]
+    #[cfg(debug_assertions)]
     #[structopt(
         short = "l",
         long = "log",
@@ -136,8 +141,6 @@ pub struct Param {
         default_value = "/var/lib/sms-gateway/log"
     )]
     pub log_path: PathBuf,
-
-    
 
     #[cfg(debug_assertions)]
     #[structopt(
