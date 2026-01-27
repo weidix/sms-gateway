@@ -39,7 +39,7 @@
   }
 </script>
 
-<div class="flex h-screen w-screen flex-col lg:flex-row font-sans dark:bg-zinc-900 dark:text-white relative">
+<div class="flex h-dvh w-screen flex-col lg:flex-row font-sans dark:bg-zinc-900 dark:text-white relative">
   {#if isSidebarOpen}
     <div
       class="fixed inset-0 bg-black/40 backdrop-blur-sm z-20 lg:hidden"

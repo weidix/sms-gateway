@@ -19,7 +19,7 @@
 <div class="app-container">
   {#if !$isAuthLoading}
     <!-- 页面内容 - 认证完成后直接显示 -->
-    <div class="h-screen w-screen overflow-hidden">
+    <div class="h-dvh w-screen overflow-hidden">
       {#if $isAuthenticated}
         <!-- 主应用界面 -->
         <div 

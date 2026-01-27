@@ -12,7 +12,7 @@
 </script>
 
 {#if simCards.length > 0}
-    <div class="flex border-b border-gray-200 dark:border-zinc-700 overflow-x-auto bg-gray-50 dark:bg-zinc-800/50 px-2 sm:px-4">
+    <div class="flex border-b border-gray-200 dark:border-zinc-700 overflow-x-auto bg-gray-50 dark:bg-zinc-800/50 pl-0 pr-2 sm:pr-4">
         {#each simCards as simCard (simCard.id)}
             <button
                 class="px-4 sm:px-6 py-3 sm:py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-all duration-200 relative
