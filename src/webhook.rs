@@ -19,7 +19,7 @@ async fn get_sim_effective_alias(sim_id: &str) -> String {
             } else {
                 format!("SIM-{}", &sim_id[sim_id.len().saturating_sub(4)..])
             }
-        },
+        }
         _ => format!("SIM-{}", &sim_id[sim_id.len().saturating_sub(4)..]),
     }
 }
@@ -92,7 +92,7 @@ pub async fn apply_template_segments_url(segments: &[TemplateSegment], msg: &Mod
                                 caps.get(1).map(|m| m.as_str().to_string())
                             };
                             extracted.unwrap_or_default()
-                        },
+                        }
                         _ => String::new(),
                     }
                 } else {
@@ -107,7 +107,10 @@ pub async fn apply_template_segments_url(segments: &[TemplateSegment], msg: &Mod
     result
 }
 
-pub async fn apply_template_segments_url_params(segments: &[TemplateSegment], msg: &ModemSMS) -> String {
+pub async fn apply_template_segments_url_params(
+    segments: &[TemplateSegment],
+    msg: &ModemSMS,
+) -> String {
     let mut result = String::new();
 
     for segment in segments {
@@ -135,7 +138,7 @@ pub async fn apply_template_segments_url_params(segments: &[TemplateSegment], ms
                                 caps.get(1).map(|m| m.as_str().to_string())
                             };
                             extracted.unwrap_or_default()
-                        },
+                        }
                         _ => String::new(),
                     }
                 } else {
@@ -287,7 +290,7 @@ impl WebhookManager {
 
         if let Some(re) = &message_filter.regex {
             match re.is_match(message) {
-                Ok(true) => {},
+                Ok(true) => {}
                 _ => return false,
             }
         }
@@ -322,15 +325,19 @@ impl WebhookManager {
         if let Some(h) = &cfg.headers {
             for (key, segments) in h {
                 let value = apply_template_segments(segments, msg).await;
-                match reqwest::header::HeaderName::from_bytes(key.as_bytes()) { Ok(header_name) => {
-                    match reqwest::header::HeaderValue::from_str(&value) { Ok(header_value) => {
-                        headers.insert(header_name, header_value);
-                    } _ => {
-                        error!("Invalid header value for key {}: {}", key, value);
-                    }}
-                } _ => {
-                    error!("Invalid header name: {}", key);
-                }}
+                match reqwest::header::HeaderName::from_bytes(key.as_bytes()) {
+                    Ok(header_name) => match reqwest::header::HeaderValue::from_str(&value) {
+                        Ok(header_value) => {
+                            headers.insert(header_name, header_value);
+                        }
+                        _ => {
+                            error!("Invalid header value for key {}: {}", key, value);
+                        }
+                    },
+                    _ => {
+                        error!("Invalid header name: {}", key);
+                    }
+                }
             }
         }
 
@@ -350,7 +357,7 @@ impl WebhookManager {
             }
         }
 
-        let timeout_duration = std::time::Duration::from_secs(cfg.timeout.unwrap_or(10)); 
+        let timeout_duration = std::time::Duration::from_secs(cfg.timeout.unwrap_or(10));
 
         let method: reqwest::Method = cfg.method.clone().into();
 

@@ -54,7 +54,7 @@ impl From<SmsStatus> for i32 {
     }
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct ModemSMS {
     pub contact: String,
     pub timestamp: NaiveDateTime,
@@ -79,10 +79,10 @@ pub struct SMSPreview {
 
 #[derive(Debug, FromRow, Deserialize, Serialize, Default, Clone)]
 pub struct SimCard {
-    pub id: String,                     // ICCID
+    pub id: String, // ICCID
     pub imsi: Option<String>,
-    pub phone_number: Option<String>,   // Phone number from SIM
-    pub alias: Option<String>,          // User-defined alias
+    pub phone_number: Option<String>, // Phone number from SIM
+    pub alias: Option<String>,        // User-defined alias
     // Note: port_path removed - SIM to port mapping is runtime only
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
@@ -315,7 +315,8 @@ impl Contact {
         .await?;
 
         Ok(())
-    }    pub async fn find_or_create(&mut self) -> Result<()> {
+    }
+    pub async fn find_or_create(&mut self) -> Result<()> {
         let pool = get_pool()?;
 
         let existing_id = sqlx::query_scalar::<_, Option<String>>(
@@ -382,7 +383,6 @@ impl Contact {
 
         Ok(result.rows_affected() > 0)
     }
-
 }
 
 impl SimCard {
@@ -391,10 +391,12 @@ impl SimCard {
         id: Option<&str>,
         imsi: Option<&str>,
         alias: Option<&str>,
-        phone_number: Option<&str>
+        phone_number: Option<&str>,
     ) -> Result<Vec<Self>> {
         let pool = get_pool()?;
-        let mut query = String::from("SELECT id, imsi, phone_number, alias, created_at, updated_at FROM sim_cards WHERE 1=1");
+        let mut query = String::from(
+            "SELECT id, imsi, phone_number, alias, created_at, updated_at FROM sim_cards WHERE 1=1",
+        );
         let mut binds = Vec::new();
 
         if let Some(id) = id {
@@ -418,7 +420,7 @@ impl SimCard {
         for bind in binds {
             query_builder = query_builder.bind(bind);
         }
-        
+
         Ok(query_builder.fetch_all(pool).await?)
     }
 
@@ -426,11 +428,13 @@ impl SimCard {
     pub async fn update_phone_number(&mut self, phone_number: Option<String>) -> Result<()> {
         let pool = get_pool()?;
         self.phone_number = phone_number.clone();
-        sqlx::query("UPDATE sim_cards SET phone_number = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-            .bind(&phone_number)
-            .bind(&self.id)
-            .execute(pool)
-            .await?;
+        sqlx::query(
+            "UPDATE sim_cards SET phone_number = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        )
+        .bind(&phone_number)
+        .bind(&self.id)
+        .execute(pool)
+        .await?;
         Ok(())
     }
 
@@ -467,7 +471,7 @@ impl SimCard {
 
         for chunk in sim_cards.chunks(MAX_BATCH_SIZE) {
             let mut query_builder = QueryBuilder::new(
-                "INSERT INTO sim_cards (id, imsi, phone_number, alias, created_at, updated_at) "
+                "INSERT INTO sim_cards (id, imsi, phone_number, alias, created_at, updated_at) ",
             );
             query_builder.push_values(chunk, |mut b, sim_card| {
                 b.push_bind(&sim_card.id)
@@ -502,10 +506,16 @@ impl SimCard {
 
     /// 工具方法：获取有效别名（非数据库操作）
     pub fn get_effective_alias(&self) -> String {
-        self.alias.as_ref()
+        self.alias
+            .as_ref()
             .filter(|a| !a.trim().is_empty())
             .cloned()
-            .or_else(|| self.phone_number.as_ref().filter(|p| !p.trim().is_empty()).cloned())
+            .or_else(|| {
+                self.phone_number
+                    .as_ref()
+                    .filter(|p| !p.trim().is_empty())
+                    .cloned()
+            })
             .unwrap_or_else(|| format!("SIM-{}", &self.id[self.id.len().saturating_sub(4)..]))
     }
 
@@ -530,20 +540,26 @@ impl SimCard {
     }
 
     /// 兼容性方法：查找或创建（带手机号）
-    pub async fn find_or_create_with_phone(id: &str, imsi: Option<String>, phone_number: Option<String>) -> Result<Self> {
+    pub async fn find_or_create_with_phone(
+        id: &str,
+        imsi: Option<String>,
+        phone_number: Option<String>,
+    ) -> Result<Self> {
         let existing = Self::find_by_conditions(Some(id), None, None, None).await?;
-        
+
         if let Some(mut sim_card) = existing.into_iter().next() {
             // For existing SIM cards, only update IMSI if changed
             // Never update phone_number - it should only be modified by users
             if sim_card.imsi != imsi {
                 sim_card.imsi = imsi;
                 let pool = get_pool()?;
-                sqlx::query("UPDATE sim_cards SET imsi = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-                    .bind(&sim_card.imsi)
-                    .bind(id)
-                    .execute(pool)
-                    .await?;
+                sqlx::query(
+                    "UPDATE sim_cards SET imsi = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                )
+                .bind(&sim_card.imsi)
+                .bind(id)
+                .execute(pool)
+                .await?;
             }
             return Ok(sim_card);
         }
@@ -716,9 +732,7 @@ impl ModemSMS {
             contact_names.insert(record.contact.clone());
         }
 
-        let contact_names = contact_names
-            .iter().cloned()
-            .collect::<Vec<String>>();
+        let contact_names = contact_names.iter().cloned().collect::<Vec<String>>();
 
         // 查询已存在的联系人
         let mut query_builder = QueryBuilder::new("SELECT id, name FROM contacts WHERE name IN (");

@@ -191,9 +191,9 @@ impl Modem {
             }
         }
 
-        let _ = at_command.response_tx.send(Err(io::Error::other(
-            "Maximum retries exceeded",
-        )));
+        let _ = at_command
+            .response_tx
+            .send(Err(io::Error::other("Maximum retries exceeded")));
     }
 
     async fn attempt_reconnection(
@@ -421,9 +421,10 @@ impl Modem {
             Ok(response)
         } else {
             error!("Command failed: {}", response);
-            Err(io::Error::other(
-                format!("Command failed: {}", Self::format_log(&response)),
-            ))
+            Err(io::Error::other(format!(
+                "Command failed: {}",
+                Self::format_log(&response)
+            )))
         }
     }
 
