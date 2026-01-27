@@ -14,6 +14,7 @@ mod config;
 mod db;
 mod decode;
 mod modem;
+mod update;
 mod webhook;
 #[cfg(test)]
 mod tests;
@@ -23,6 +24,20 @@ pub type ModemManagerRef = Arc<ModemManager>;
 #[tokio::main]
 async fn main() {
     let param = Param::from_args();
+    if let Some(command) = param.command {
+        match command {
+            Command::Update => {
+                if let Err(err) = update::run_update().await {
+                    eprintln!("Update failed: {}", err);
+                    std::process::exit(1);
+                }
+            }
+            Command::Version => {
+                println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+            }
+        }
+        return;
+    }
     if let Err(err) = log_init(&param.log_path, &param.log_level) {
         eprintln!("Error: {}", err);
         std::process::exit(1);
@@ -101,6 +116,9 @@ async fn read_sms_worker(
 
 #[derive(Debug, StructOpt)]
 pub struct Param {
+    #[structopt(subcommand)]
+    pub command: Option<Command>,
+
 #[cfg(debug_assertions)]
     #[structopt(
         short = "l",
@@ -146,6 +164,14 @@ pub struct Param {
         default_value = "/etc/sms-gateway/config.toml"
     )]
     pub config_file: PathBuf,
+}
+
+#[derive(Debug, StructOpt)]
+pub enum Command {
+    /// Update sms-gateway to the latest release
+    Update,
+    /// Show version information
+    Version,
 }
 
 fn log_init(log_path: &PathBuf, log_level: &LevelFilter) -> anyhow::Result<()> {

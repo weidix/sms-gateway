@@ -70,6 +70,12 @@ The compiled binary will be available in `target/release/sms-gateway`.
 
 # Set log level
 ./target/release/sms-gateway --log-level debug
+
+# Update to the latest release
+./target/release/sms-gateway update
+
+# Show version
+./target/release/sms-gateway version
 ```
 
 ## ⚙️ Configuration
