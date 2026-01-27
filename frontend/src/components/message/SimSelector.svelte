@@ -78,8 +78,8 @@
 
 <div class="relative" use:clickOutside>
   <div
-    class="relative transition-all duration-300 ease-out w-full sm:w-auto sm:max-w-[320px]"
-    style={`width: ${showSimSelector ? 'min(320px, 100%)' : 'min(200px, 100%)'};`}
+    class="sim-selector-width relative transition-all duration-300 ease-out w-full sm:max-w-none"
+    style={`--sim-width: ${showSimSelector ? '320px' : '200px'};`}
   >
     {#if expandedContent}
       <!-- 向上弹出的内容 -->
@@ -288,5 +288,15 @@
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+
+  .sim-selector-width {
+    width: min(var(--sim-width), 100%);
+  }
+
+  @media (min-width: 640px) {
+    .sim-selector-width {
+      width: var(--sim-width);
+    }
   }
 </style>

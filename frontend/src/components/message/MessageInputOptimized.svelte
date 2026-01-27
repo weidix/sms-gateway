@@ -94,7 +94,7 @@
     </div>
 
     <div class="flex flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-      <div class="w-full sm:w-[180px] flex-1">
+      <div class="w-full flex-1 sm:flex-none sm:w-auto sm:min-w-[200px] sm:max-w-[320px]">
         <SimSelector bind:selectedSim />
       </div>
       
