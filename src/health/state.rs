@@ -121,6 +121,31 @@ impl HealthSnapshot {
         }
     }
 
+    pub fn record_critical_failure<I>(
+        &self,
+        reasons: I,
+        recovery_action: Option<RecoveryAction>,
+    ) -> Self
+    where
+        I: IntoIterator<Item = FailureReason>,
+    {
+        let now = Utc::now();
+
+        Self {
+            current_status: HealthStatus::Critical,
+            failure_reasons: reasons.into_iter().collect(),
+            consecutive_failures: self.consecutive_failures + 1,
+            last_probe_at: Some(now),
+            last_ok_at: self.last_ok_at,
+            last_recovery_action: recovery_action.or(self.last_recovery_action),
+            last_recovery_at: if recovery_action.is_some() || self.last_recovery_action.is_some() {
+                Some(now)
+            } else {
+                self.last_recovery_at
+            },
+        }
+    }
+
     pub fn with_status(mut self, status: HealthStatus) -> Self {
         self.current_status = status;
         self

@@ -371,3 +371,15 @@ async fn latest_recovery_action_tracks_last_attempted_step() {
 async fn read_sms_failed_reason_marks_snapshot_unhealthy() {
     crate::tests::health_tests::assert_read_sms_failed_reason_marks_snapshot_unhealthy().await;
 }
+
+#[cfg(test)]
+#[tokio::test]
+async fn failed_reprobe_after_recovery_becomes_critical() {
+    crate::tests::health_tests::assert_failed_reprobe_after_recovery_becomes_critical().await;
+}
+
+#[cfg(test)]
+#[test]
+fn d_probe_uses_configured_receive_storage_semantics() {
+    crate::health::probe::assert_d_probe_uses_configured_receive_storage_semantics();
+}

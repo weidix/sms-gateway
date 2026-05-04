@@ -3,6 +3,7 @@ use std::{collections::BTreeSet, future::Future, pin::Pin};
 use anyhow::Result;
 
 use crate::{
+    config::SmsStorage,
     health::state::FailureReason,
     modem::{SmsStorageStatus, SmsType},
     ModemManagerRef,
@@ -64,14 +65,35 @@ impl ModemHealthProbe {
         Self { modem_manager }
     }
 
-    fn storage_is_full(storage: &SmsStorageStatus) -> bool {
-        [
-            (storage.read_used, storage.read_total),
-            (storage.write_used, storage.write_total),
-            (storage.receive_used, storage.receive_total),
-        ]
-        .into_iter()
-        .any(|(used, total)| total > 0 && used >= total)
+    fn configured_storage_code(storage: SmsStorage) -> &'static str {
+        match storage {
+            SmsStorage::SIM => "SM",
+            SmsStorage::ME => "ME",
+            SmsStorage::MT => "MT",
+        }
+    }
+
+    fn classify_storage(
+        configured_storage: Option<SmsStorage>,
+        storage: Option<&SmsStorageStatus>,
+    ) -> Option<FailureReason> {
+        let storage = match storage {
+            Some(storage) => storage,
+            None => return Some(FailureReason::SmsStorageUnavailable),
+        };
+        let expected_receive_storage = configured_storage
+            .map(Self::configured_storage_code)
+            .unwrap_or(storage.receive_storage.as_str());
+
+        if storage.receive_storage != expected_receive_storage || storage.receive_total == 0 {
+            return Some(FailureReason::SmsStorageUnavailable);
+        }
+
+        if storage.receive_used >= storage.receive_total {
+            return Some(FailureReason::SmsStorageFull);
+        }
+
+        None
     }
 }
 
@@ -109,14 +131,21 @@ impl HealthProbe for ModemHealthProbe {
                 failed_reasons.insert(FailureReason::NetworkNotRegistered);
             }
 
-            let storage = self.modem_manager.get_sms_storage_overview(sim_id).await?;
+            let configured_storage = self.modem_manager.get_configured_sms_storage(sim_id).await;
+            let storage = match self.modem_manager.get_sms_storage_overview(sim_id).await {
+                Ok(storage) => storage,
+                Err(_) => {
+                    failed_reasons.insert(FailureReason::SmsStorageUnavailable);
+                    return Ok(HealthCheckResult::failure(failed_reasons));
+                }
+            };
             let Some(storage) = storage else {
                 failed_reasons.insert(FailureReason::SmsStorageUnavailable);
                 return Ok(HealthCheckResult::failure(failed_reasons));
             };
 
-            if Self::storage_is_full(&storage) {
-                failed_reasons.insert(FailureReason::SmsStorageFull);
+            if let Some(reason) = Self::classify_storage(configured_storage, Some(&storage)) {
+                failed_reasons.insert(reason);
             }
 
             if self
@@ -135,4 +164,40 @@ impl HealthProbe for ModemHealthProbe {
             })
         })
     }
+}
+
+#[cfg(test)]
+pub(crate) fn assert_d_probe_uses_configured_receive_storage_semantics() {
+    let matching_full = SmsStorageStatus {
+        read_storage: "ME".to_string(),
+        read_used: 1,
+        read_total: 10,
+        write_storage: "ME".to_string(),
+        write_used: 1,
+        write_total: 10,
+        receive_storage: "ME".to_string(),
+        receive_used: 10,
+        receive_total: 10,
+    };
+    let mismatched_receive = SmsStorageStatus {
+        receive_storage: "SM".to_string(),
+        ..matching_full.clone()
+    };
+
+    assert_eq!(
+        ModemHealthProbe::classify_storage(Some(SmsStorage::ME), Some(&matching_full)),
+        Some(FailureReason::SmsStorageFull)
+    );
+    assert_eq!(
+        ModemHealthProbe::classify_storage(Some(SmsStorage::ME), Some(&mismatched_receive)),
+        Some(FailureReason::SmsStorageUnavailable)
+    );
+    assert_eq!(
+        ModemHealthProbe::classify_storage(None, Some(&matching_full)),
+        Some(FailureReason::SmsStorageFull)
+    );
+    assert_eq!(
+        ModemHealthProbe::classify_storage(Some(SmsStorage::ME), None),
+        Some(FailureReason::SmsStorageUnavailable)
+    );
 }

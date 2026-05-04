@@ -342,6 +342,14 @@ impl ModemManager {
         Ok(())
     }
 
+    pub async fn get_configured_sms_storage(&self, sim_id: &str) -> Option<SmsStorage> {
+        self.configured_sms_storage
+            .read()
+            .await
+            .get(sim_id)
+            .copied()
+    }
+
     pub async fn get_sms_storage_status(&self, sim_id: &str) -> anyhow::Result<Option<String>> {
         let configured_sms_storage = self.configured_sms_storage.read().await;
         let storage = Self::configured_sms_storage_for(&configured_sms_storage, sim_id);

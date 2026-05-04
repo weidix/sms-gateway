@@ -105,15 +105,13 @@ impl HealthSupervisor {
 
         match self.probe.run_checks(sim_id).await {
             Ok(follow_up) if follow_up.is_healthy() => recovering.record_success(),
-            Ok(follow_up) => recovering.record_failure(
-                self.failure_threshold,
+            Ok(follow_up) => recovering.record_critical_failure(
                 follow_up.failed_reasons().iter().copied(),
                 step_last_action(self.recovery_plan.steps()),
             ),
             Err(err) => {
                 warn!("Health probe failed after recovery for {}: {}", sim_id, err);
-                recovering.record_failure(
-                    self.failure_threshold,
+                recovering.record_critical_failure(
                     [FailureReason::AtUnreachable],
                     step_last_action(self.recovery_plan.steps()),
                 )

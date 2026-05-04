@@ -134,6 +134,32 @@ pub(crate) async fn assert_read_sms_failed_reason_marks_snapshot_unhealthy() {
         .contains(&FailureReason::ReadSmsFailed));
 }
 
+pub(crate) async fn assert_failed_reprobe_after_recovery_becomes_critical() {
+    let probe = Arc::new(SequenceProbe::new(
+        vec!["sim-1".to_string()],
+        [(
+            "sim-1",
+            vec![
+                HealthCheckResult::failure([FailureReason::AtUnreachable]),
+                HealthCheckResult::failure([FailureReason::ReadSmsFailed]),
+            ],
+        )],
+    ));
+    let recovery = Arc::new(RecordingRecovery::default());
+    let supervisor = HealthSupervisor::new(probe, recovery, 1, RecoveryPlan::default());
+
+    supervisor.run_probe_cycle().await;
+
+    let snapshot = supervisor
+        .snapshot_for("sim-1")
+        .await
+        .expect("expected sim snapshot");
+    assert_eq!(snapshot.current_status, HealthStatus::Critical);
+    assert!(snapshot
+        .failure_reasons
+        .contains(&FailureReason::ReadSmsFailed));
+}
+
 #[derive(Default)]
 struct RecordingRecovery {
     events: Mutex<Vec<(String, RecoveryStep)>>,
