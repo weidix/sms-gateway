@@ -2,7 +2,11 @@ use std::{collections::BTreeSet, future::Future, pin::Pin};
 
 use anyhow::Result;
 
-use crate::{health::state::FailureReason, modem::SmsStorageStatus, ModemManagerRef};
+use crate::{
+    health::state::FailureReason,
+    modem::{SmsStorageStatus, SmsType},
+    ModemManagerRef,
+};
 
 pub type HealthFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
@@ -47,7 +51,8 @@ impl HealthCheckResult {
 }
 
 pub trait HealthProbe: Send + Sync {
-    fn run_checks(&self) -> HealthFuture<'_, Result<HealthCheckResult>>;
+    fn sim_ids(&self) -> Pin<Box<dyn Future<Output = Vec<String>> + Send + '_>>;
+    fn run_checks<'a>(&'a self, sim_id: &'a str) -> HealthFuture<'a, Result<HealthCheckResult>>;
 }
 
 pub struct ModemHealthProbe {
@@ -71,45 +76,56 @@ impl ModemHealthProbe {
 }
 
 impl HealthProbe for ModemHealthProbe {
-    fn run_checks(&self) -> HealthFuture<'_, Result<HealthCheckResult>> {
+    fn sim_ids(&self) -> Pin<Box<dyn Future<Output = Vec<String>> + Send + '_>> {
+        Box::pin(async move { self.modem_manager.get_sim_ids().await })
+    }
+
+    fn run_checks<'a>(&'a self, sim_id: &'a str) -> HealthFuture<'a, Result<HealthCheckResult>> {
         Box::pin(async move {
             let mut failed_reasons = BTreeSet::new();
 
-            for sim_id in self.modem_manager.get_sim_ids().await {
-                if self.modem_manager.probe_at(&sim_id).await.is_err() {
-                    failed_reasons.insert(FailureReason::AtUnreachable);
-                    continue;
-                }
+            if self.modem_manager.probe_at(sim_id).await.is_err() {
+                failed_reasons.insert(FailureReason::AtUnreachable);
+                return Ok(HealthCheckResult::failure(failed_reasons));
+            }
 
-                let sim_ready = self
-                    .modem_manager
-                    .get_sim_status(&sim_id)
-                    .await?
-                    .map(|status| status.trim().eq_ignore_ascii_case("READY"))
-                    .unwrap_or(false);
-                if !sim_ready {
-                    failed_reasons.insert(FailureReason::SimNotReady);
-                }
+            let sim_ready = self
+                .modem_manager
+                .get_sim_status(sim_id)
+                .await?
+                .map(|status| status.trim().eq_ignore_ascii_case("READY"))
+                .unwrap_or(false);
+            if !sim_ready {
+                failed_reasons.insert(FailureReason::SimNotReady);
+            }
 
-                let network_registered = self
-                    .modem_manager
-                    .check_network_registration(&sim_id)
-                    .await?
-                    .map(|status| status.is_registered())
-                    .unwrap_or(false);
-                if !network_registered {
-                    failed_reasons.insert(FailureReason::NetworkNotRegistered);
-                }
+            let network_registered = self
+                .modem_manager
+                .check_network_registration(sim_id)
+                .await?
+                .map(|status| status.is_registered())
+                .unwrap_or(false);
+            if !network_registered {
+                failed_reasons.insert(FailureReason::NetworkNotRegistered);
+            }
 
-                let storage = self.modem_manager.get_sms_storage_overview(&sim_id).await?;
-                let Some(storage) = storage else {
-                    failed_reasons.insert(FailureReason::SmsStorageUnavailable);
-                    continue;
-                };
+            let storage = self.modem_manager.get_sms_storage_overview(sim_id).await?;
+            let Some(storage) = storage else {
+                failed_reasons.insert(FailureReason::SmsStorageUnavailable);
+                return Ok(HealthCheckResult::failure(failed_reasons));
+            };
 
-                if Self::storage_is_full(&storage) {
-                    failed_reasons.insert(FailureReason::SmsStorageFull);
-                }
+            if Self::storage_is_full(&storage) {
+                failed_reasons.insert(FailureReason::SmsStorageFull);
+            }
+
+            if self
+                .modem_manager
+                .read_sms(sim_id, SmsType::RecUnread)
+                .await
+                .is_err()
+            {
+                failed_reasons.insert(FailureReason::ReadSmsFailed);
             }
 
             Ok(if failed_reasons.is_empty() {

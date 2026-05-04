@@ -1,13 +1,13 @@
-use std::{sync::Arc, time::Duration};
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use log::{error, warn};
 use tokio::{sync::RwLock, task::JoinHandle, time::sleep};
 
-use crate::health::state::{HealthSnapshot, RecoveryAction};
+use crate::health::state::{FailureReason, HealthSnapshot, HealthStatus};
 
 use super::{
     probe::HealthProbe,
-    recovery::{RecoveryExecutor, RecoveryPlan},
+    recovery::{RecoveryExecutor, RecoveryPlan, RecoveryStep},
 };
 
 pub struct HealthSupervisor {
@@ -15,7 +15,7 @@ pub struct HealthSupervisor {
     recovery: Arc<dyn RecoveryExecutor>,
     failure_threshold: u64,
     recovery_plan: RecoveryPlan,
-    snapshot: Arc<RwLock<HealthSnapshot>>,
+    snapshots: Arc<RwLock<BTreeMap<String, HealthSnapshot>>>,
 }
 
 impl HealthSupervisor {
@@ -30,64 +30,95 @@ impl HealthSupervisor {
             recovery,
             failure_threshold,
             recovery_plan,
-            snapshot: Arc::new(RwLock::new(HealthSnapshot::new())),
+            snapshots: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
 
-    pub async fn snapshot(&self) -> HealthSnapshot {
-        self.snapshot.read().await.clone()
+    pub async fn snapshot_for(&self, sim_id: &str) -> Option<HealthSnapshot> {
+        self.snapshots.read().await.get(sim_id).cloned()
     }
 
-    pub async fn replace_snapshot(&self, snapshot: HealthSnapshot) {
-        *self.snapshot.write().await = snapshot;
+    pub async fn replace_snapshot(&self, sim_id: &str, snapshot: HealthSnapshot) {
+        self.snapshots
+            .write()
+            .await
+            .insert(sim_id.to_string(), snapshot);
     }
 
-    pub async fn run_probe_cycle(&self) -> HealthSnapshot {
-        let current = self.snapshot().await;
+    pub async fn run_probe_cycle(&self) -> BTreeMap<String, HealthSnapshot> {
+        for sim_id in self.probe.sim_ids().await {
+            let current = self
+                .snapshot_for(&sim_id)
+                .await
+                .unwrap_or_else(HealthSnapshot::new);
+            let next = self.run_probe_cycle_for_sim(&sim_id, current).await;
+            self.replace_snapshot(&sim_id, next).await;
+        }
 
-        let next = match self.probe.run_checks().await {
+        self.snapshots.read().await.clone()
+    }
+
+    async fn run_probe_cycle_for_sim(
+        &self,
+        sim_id: &str,
+        current: HealthSnapshot,
+    ) -> HealthSnapshot {
+        match self.probe.run_checks(sim_id).await {
             Ok(result) if result.is_healthy() => current.record_success(),
             Ok(result) => {
                 let failed = current.record_failure(
                     self.failure_threshold,
                     result.failed_reasons().iter().copied(),
-                    Some(RecoveryAction::ReinitializeModem),
+                    None,
                 );
 
-                if matches!(
-                    failed.current_status,
-                    crate::health::state::HealthStatus::Recovering
-                ) {
-                    match self.recovery.execute(&self.recovery_plan).await {
-                        Ok(()) => match self.probe.run_checks().await {
-                            Ok(follow_up) if follow_up.is_healthy() => failed.record_success(),
-                            Ok(_) => failed,
-                            Err(err) => {
-                                warn!("Health probe failed after recovery: {}", err);
-                                failed
-                            }
-                        },
-                        Err(err) => {
-                            error!("Health recovery failed: {}", err);
-                            failed
-                        }
-                    }
+                if matches!(failed.current_status, HealthStatus::Recovering) {
+                    self.recover_sim(sim_id, failed).await
                 } else {
                     failed
                 }
             }
             Err(err) => {
-                warn!("Health probe execution failed: {}", err);
-                current.record_failure(
+                warn!("Health probe execution failed for {}: {}", sim_id, err);
+                current.record_failure(self.failure_threshold, [FailureReason::AtUnreachable], None)
+            }
+        }
+    }
+
+    async fn recover_sim(&self, sim_id: &str, snapshot: HealthSnapshot) -> HealthSnapshot {
+        let mut recovering = snapshot;
+
+        for step in self.recovery_plan.steps() {
+            if let Some(action) = step.recovery_action() {
+                recovering = recovering.record_recovery_action(action);
+                self.replace_snapshot(sim_id, recovering.clone()).await;
+            }
+
+            if let Err(err) = self.recovery.execute_step(sim_id, *step).await {
+                error!(
+                    "Health recovery failed for {} at {:?}: {}",
+                    sim_id, step, err
+                );
+                return recovering;
+            }
+        }
+
+        match self.probe.run_checks(sim_id).await {
+            Ok(follow_up) if follow_up.is_healthy() => recovering.record_success(),
+            Ok(follow_up) => recovering.record_failure(
+                self.failure_threshold,
+                follow_up.failed_reasons().iter().copied(),
+                step_last_action(self.recovery_plan.steps()),
+            ),
+            Err(err) => {
+                warn!("Health probe failed after recovery for {}: {}", sim_id, err);
+                recovering.record_failure(
                     self.failure_threshold,
-                    [crate::health::state::FailureReason::AtUnreachable],
-                    Some(RecoveryAction::ReinitializeModem),
+                    [FailureReason::AtUnreachable],
+                    step_last_action(self.recovery_plan.steps()),
                 )
             }
-        };
-
-        self.replace_snapshot(next.clone()).await;
-        next
+        }
     }
 
     pub fn spawn_worker(self: Arc<Self>, interval: Duration) -> JoinHandle<()> {
@@ -98,4 +129,8 @@ impl HealthSupervisor {
             }
         })
     }
+}
+
+fn step_last_action(steps: &[RecoveryStep]) -> Option<crate::health::state::RecoveryAction> {
+    steps.iter().rev().find_map(|step| step.recovery_action())
 }

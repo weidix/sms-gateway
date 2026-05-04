@@ -5,7 +5,7 @@ use tokio::time::sleep;
 
 use crate::ModemManagerRef;
 
-use super::probe::HealthFuture;
+use super::{probe::HealthFuture, state::RecoveryAction};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RecoveryStep {
@@ -41,7 +41,11 @@ impl Default for RecoveryPlan {
 }
 
 pub trait RecoveryExecutor: Send + Sync {
-    fn execute<'a>(&'a self, plan: &'a RecoveryPlan) -> HealthFuture<'a, Result<()>>;
+    fn execute_step<'a>(
+        &'a self,
+        sim_id: &'a str,
+        step: RecoveryStep,
+    ) -> HealthFuture<'a, Result<()>>;
 }
 
 pub struct ModemRecovery {
@@ -58,45 +62,43 @@ impl ModemRecovery {
     }
 }
 
-impl RecoveryExecutor for ModemRecovery {
-    fn execute<'a>(&'a self, plan: &'a RecoveryPlan) -> HealthFuture<'a, Result<()>> {
-        Box::pin(async move {
-            let sim_ids = self.modem_manager.get_sim_ids().await;
+impl RecoveryStep {
+    pub fn recovery_action(self) -> Option<RecoveryAction> {
+        match self {
+            RecoveryStep::ReinitializeRuntime => Some(RecoveryAction::ReinitializeModem),
+            RecoveryStep::ReapplyStorageIfConfigured => Some(RecoveryAction::ReapplySmsStorage),
+            RecoveryStep::SoftRestart => Some(RecoveryAction::RestartModem),
+            RecoveryStep::WaitWindow => None,
+        }
+    }
+}
 
-            for step in plan.steps() {
-                match step {
-                    RecoveryStep::ReinitializeRuntime => {
-                        for sim_id in &sim_ids {
-                            self.modem_manager
-                                .reinitialize_runtime(sim_id)
-                                .await
-                                .with_context(|| {
-                                    format!("Failed to reinitialize modem runtime for {}", sim_id)
-                                })?;
-                        }
-                    }
-                    RecoveryStep::ReapplyStorageIfConfigured => {
-                        for sim_id in &sim_ids {
-                            self.modem_manager
-                                .reapply_configured_sms_storage(sim_id)
-                                .await
-                                .with_context(|| {
-                                    format!("Failed to reapply SMS storage for {}", sim_id)
-                                })?;
-                        }
-                    }
-                    RecoveryStep::SoftRestart => {
-                        for sim_id in &sim_ids {
-                            self.modem_manager
-                                .soft_restart(sim_id)
-                                .await
-                                .with_context(|| {
-                                    format!("Failed to soft restart modem {}", sim_id)
-                                })?;
-                        }
-                    }
-                    RecoveryStep::WaitWindow => sleep(self.wait_window).await,
-                }
+impl RecoveryExecutor for ModemRecovery {
+    fn execute_step<'a>(
+        &'a self,
+        sim_id: &'a str,
+        step: RecoveryStep,
+    ) -> HealthFuture<'a, Result<()>> {
+        Box::pin(async move {
+            match step {
+                RecoveryStep::ReinitializeRuntime => self
+                    .modem_manager
+                    .reinitialize_runtime(sim_id)
+                    .await
+                    .with_context(|| {
+                        format!("Failed to reinitialize modem runtime for {}", sim_id)
+                    })?,
+                RecoveryStep::ReapplyStorageIfConfigured => self
+                    .modem_manager
+                    .reapply_configured_sms_storage(sim_id)
+                    .await
+                    .with_context(|| format!("Failed to reapply SMS storage for {}", sim_id))?,
+                RecoveryStep::SoftRestart => self
+                    .modem_manager
+                    .soft_restart(sim_id)
+                    .await
+                    .with_context(|| format!("Failed to soft restart modem {}", sim_id))?,
+                RecoveryStep::WaitWindow => sleep(self.wait_window).await,
             }
 
             Ok(())

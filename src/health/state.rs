@@ -83,29 +83,41 @@ impl HealthSnapshot {
         let consecutive_failures = self.consecutive_failures + 1;
         let failure_reasons = reasons.into_iter().collect::<BTreeSet<_>>();
         let reached_threshold = consecutive_failures >= failure_threshold;
-        let enters_recovering =
-            reached_threshold && self.current_status != HealthStatus::Recovering;
+        let current_status = if reached_threshold {
+            HealthStatus::Recovering
+        } else {
+            HealthStatus::Degraded
+        };
+        let latest_recovery_action = if reached_threshold {
+            recovery_action.or(self.last_recovery_action)
+        } else {
+            self.last_recovery_action
+        };
 
         Self {
-            current_status: if reached_threshold {
-                HealthStatus::Recovering
-            } else {
-                HealthStatus::Degraded
-            },
+            current_status,
             failure_reasons,
             consecutive_failures,
             last_probe_at: Some(now),
             last_ok_at: self.last_ok_at,
-            last_recovery_action: if enters_recovering {
-                recovery_action
-            } else {
-                self.last_recovery_action
-            },
-            last_recovery_at: if enters_recovering {
+            last_recovery_action: latest_recovery_action,
+            last_recovery_at: if reached_threshold && latest_recovery_action.is_some() {
                 Some(now)
             } else {
                 self.last_recovery_at
             },
+        }
+    }
+
+    pub fn record_recovery_action(&self, action: RecoveryAction) -> Self {
+        Self {
+            current_status: HealthStatus::Recovering,
+            failure_reasons: self.failure_reasons.clone(),
+            consecutive_failures: self.consecutive_failures,
+            last_probe_at: self.last_probe_at,
+            last_ok_at: self.last_ok_at,
+            last_recovery_action: Some(action),
+            last_recovery_at: Some(Utc::now()),
         }
     }
 
@@ -169,7 +181,7 @@ mod tests {
     }
 
     #[test]
-    fn repeated_failure_while_recovering_preserves_recovery_start() {
+    fn repeated_failure_while_recovering_updates_latest_recovery_action() {
         let original_recovery_at = Utc.with_ymd_and_hms(2026, 5, 4, 10, 0, 0).unwrap();
         let snapshot = HealthSnapshot {
             current_status: HealthStatus::Recovering,
@@ -189,8 +201,8 @@ mod tests {
         assert_eq!(failed.consecutive_failures, 4);
         assert_eq!(
             failed.last_recovery_action,
-            Some(RecoveryAction::ReinitializeModem)
+            Some(RecoveryAction::RestartModem)
         );
-        assert_eq!(failed.last_recovery_at, Some(original_recovery_at));
+        assert_ne!(failed.last_recovery_at, Some(original_recovery_at));
     }
 }

@@ -57,7 +57,6 @@ async fn run() -> anyhow::Result<()> {
             .await
             .context("Failed to initialize ModemManager")?,
     );
-    let _health_supervisor = health::start_supervisor(modem_manager.clone(), &config.settings);
 
     let sse_manager = Arc::new(api::SseManager::new());
 
@@ -75,6 +74,7 @@ async fn run() -> anyhow::Result<()> {
         sse_manager.clone(),
         webhook_manager,
     ));
+    let _health_supervisor = health::start_supervisor(modem_manager.clone(), &config.settings);
 
     run_api_for_settings(modem_manager, &config.settings, sse_manager).await
 }
@@ -352,4 +352,22 @@ fn default_recovery_plan_is_stable() {
 async fn unhealthy_snapshot_returns_to_healthy_after_probe_success() {
     crate::tests::health_tests::assert_unhealthy_snapshot_returns_to_healthy_after_probe_success()
         .await;
+}
+
+#[cfg(test)]
+#[tokio::test]
+async fn only_failing_sim_runs_recovery() {
+    crate::tests::health_tests::assert_only_failing_sim_runs_recovery().await;
+}
+
+#[cfg(test)]
+#[tokio::test]
+async fn latest_recovery_action_tracks_last_attempted_step() {
+    crate::tests::health_tests::assert_latest_recovery_action_tracks_last_attempted_step().await;
+}
+
+#[cfg(test)]
+#[tokio::test]
+async fn read_sms_failed_reason_marks_snapshot_unhealthy() {
+    crate::tests::health_tests::assert_read_sms_failed_reason_marks_snapshot_unhealthy().await;
 }
