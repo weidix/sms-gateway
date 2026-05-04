@@ -19,6 +19,10 @@ impl AlertGate {
         self.last_emitted = Some(next);
         true
     }
+
+    pub fn reset(&mut self) {
+        self.last_emitted = None;
+    }
 }
 
 #[allow(dead_code)]
@@ -41,7 +45,6 @@ impl From<&HealthSnapshot> for AlertFingerprint {
 mod tests {
     use super::*;
 
-    #[test]
     pub(crate) fn duplicate_status_and_reason_set_does_not_emit_alert() {
         let first = HealthSnapshot::new().record_failure(3, [FailureReason::AtUnreachable], None);
         let duplicate =
@@ -56,6 +59,24 @@ mod tests {
             .with_status(HealthStatus::Critical)
             .with_failure_reasons([FailureReason::AtUnreachable]);
         assert!(gate.should_emit(&changed_status));
+    }
+
+    #[test]
+    fn reset_allows_same_fingerprint_to_emit_again() {
+        let unhealthy =
+            HealthSnapshot::new().record_failure(3, [FailureReason::AtUnreachable], None);
+        let healthy = HealthSnapshot::new().record_success();
+        let mut gate = AlertGate::default();
+
+        assert!(gate.should_emit(&unhealthy));
+        assert!(!gate.should_emit(&unhealthy));
+
+        gate.reset();
+        assert!(gate.should_emit(&unhealthy));
+
+        assert!(gate.should_emit(&healthy));
+        gate.reset();
+        assert!(gate.should_emit(&unhealthy));
     }
 }
 

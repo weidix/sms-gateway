@@ -83,6 +83,8 @@ impl HealthSnapshot {
         let consecutive_failures = self.consecutive_failures + 1;
         let failure_reasons = reasons.into_iter().collect::<BTreeSet<_>>();
         let reached_threshold = consecutive_failures >= failure_threshold;
+        let enters_recovering =
+            reached_threshold && self.current_status != HealthStatus::Recovering;
 
         Self {
             current_status: if reached_threshold {
@@ -94,12 +96,12 @@ impl HealthSnapshot {
             consecutive_failures,
             last_probe_at: Some(now),
             last_ok_at: self.last_ok_at,
-            last_recovery_action: if reached_threshold {
+            last_recovery_action: if enters_recovering {
                 recovery_action
             } else {
                 self.last_recovery_action
             },
-            last_recovery_at: if reached_threshold {
+            last_recovery_at: if enters_recovering {
                 Some(now)
             } else {
                 self.last_recovery_at
@@ -130,8 +132,8 @@ impl Default for HealthSnapshot {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
 
-    #[test]
     pub(crate) fn state_machine_moves_to_recovering_at_threshold() {
         let snapshot = HealthSnapshot {
             consecutive_failures: 2,
@@ -159,6 +161,32 @@ mod tests {
         assert!(failed.last_probe_at.is_some());
         assert!(failed.last_recovery_at.is_some());
         assert!(failed.last_ok_at.is_none());
+    }
+
+    #[test]
+    fn repeated_failure_while_recovering_preserves_recovery_start() {
+        let original_recovery_at = Utc.with_ymd_and_hms(2026, 5, 4, 10, 0, 0).unwrap();
+        let snapshot = HealthSnapshot {
+            current_status: HealthStatus::Recovering,
+            consecutive_failures: 3,
+            last_recovery_action: Some(RecoveryAction::ReinitializeModem),
+            last_recovery_at: Some(original_recovery_at),
+            ..HealthSnapshot::new()
+        };
+
+        let failed = snapshot.record_failure(
+            3,
+            [FailureReason::AtUnreachable],
+            Some(RecoveryAction::RestartModem),
+        );
+
+        assert_eq!(failed.current_status, HealthStatus::Recovering);
+        assert_eq!(failed.consecutive_failures, 4);
+        assert_eq!(
+            failed.last_recovery_action,
+            Some(RecoveryAction::ReinitializeModem)
+        );
+        assert_eq!(failed.last_recovery_at, Some(original_recovery_at));
     }
 }
 
