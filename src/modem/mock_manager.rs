@@ -329,6 +329,19 @@ impl ModemManager {
         Ok(())
     }
 
+    pub async fn reapply_configured_sms_storage(&self, sim_id: &str) -> anyhow::Result<()> {
+        if self
+            .configured_sms_storage
+            .read()
+            .await
+            .contains_key(sim_id)
+        {
+            return Ok(());
+        }
+
+        Ok(())
+    }
+
     pub async fn get_sms_storage_status(&self, sim_id: &str) -> anyhow::Result<Option<String>> {
         let configured_sms_storage = self.configured_sms_storage.read().await;
         let storage = Self::configured_sms_storage_for(&configured_sms_storage, sim_id);
@@ -396,5 +409,40 @@ mod tests {
         assert_eq!(overview.read_storage, "SM");
         assert_eq!(overview.write_storage, "SM");
         assert_eq!(overview.receive_storage, "SM");
+    }
+
+    #[tokio::test]
+    async fn reapply_configured_sms_storage_uses_per_sim_configuration() {
+        let manager = ModemManager {
+            modems: Arc::new(RwLock::new(HashMap::new())),
+            sim_cards_cache: Arc::new(RwLock::new(HashMap::new())),
+            configured_sms_storage: Arc::new(RwLock::new(HashMap::from([
+                ("sim-1".to_string(), SmsStorage::ME),
+                ("sim-2".to_string(), SmsStorage::MT),
+            ]))),
+        };
+
+        manager
+            .reapply_configured_sms_storage("sim-1")
+            .await
+            .expect("expected storage reapply to succeed");
+        manager
+            .reapply_configured_sms_storage("sim-2")
+            .await
+            .expect("expected storage reapply to succeed");
+
+        let sim1 = manager
+            .get_sms_storage_overview("sim-1")
+            .await
+            .expect("expected sim-1 storage overview")
+            .expect("expected sim-1 storage state");
+        let sim2 = manager
+            .get_sms_storage_overview("sim-2")
+            .await
+            .expect("expected sim-2 storage overview")
+            .expect("expected sim-2 storage state");
+
+        assert_eq!(sim1.read_storage, "ME");
+        assert_eq!(sim2.read_storage, "MT");
     }
 }

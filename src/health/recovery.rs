@@ -3,7 +3,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use tokio::time::sleep;
 
-use crate::{config::SmsStorage, ModemManagerRef};
+use crate::ModemManagerRef;
 
 use super::probe::HealthFuture;
 
@@ -46,19 +46,13 @@ pub trait RecoveryExecutor: Send + Sync {
 
 pub struct ModemRecovery {
     modem_manager: ModemManagerRef,
-    configured_sms_storage: Option<SmsStorage>,
     wait_window: Duration,
 }
 
 impl ModemRecovery {
-    pub fn new(
-        modem_manager: ModemManagerRef,
-        configured_sms_storage: Option<SmsStorage>,
-        wait_window: Duration,
-    ) -> Self {
+    pub fn new(modem_manager: ModemManagerRef, wait_window: Duration) -> Self {
         Self {
             modem_manager,
-            configured_sms_storage,
             wait_window,
         }
     }
@@ -82,15 +76,13 @@ impl RecoveryExecutor for ModemRecovery {
                         }
                     }
                     RecoveryStep::ReapplyStorageIfConfigured => {
-                        if let Some(storage) = self.configured_sms_storage {
-                            for sim_id in &sim_ids {
-                                self.modem_manager
-                                    .set_sms_storage(sim_id, storage)
-                                    .await
-                                    .with_context(|| {
-                                        format!("Failed to reapply SMS storage for {}", sim_id)
-                                    })?;
-                            }
+                        for sim_id in &sim_ids {
+                            self.modem_manager
+                                .reapply_configured_sms_storage(sim_id)
+                                .await
+                                .with_context(|| {
+                                    format!("Failed to reapply SMS storage for {}", sim_id)
+                                })?;
                         }
                     }
                     RecoveryStep::SoftRestart => {

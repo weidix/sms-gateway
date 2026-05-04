@@ -19,7 +19,6 @@ pub fn start_supervisor(
     let probe = Arc::new(ModemHealthProbe::new(modem_manager.clone()));
     let recovery = Arc::new(ModemRecovery::new(
         modem_manager,
-        settings.sms_storage,
         Duration::from_secs(settings.health_restart_wait_seconds),
     ));
     let supervisor = Arc::new(HealthSupervisor::new(

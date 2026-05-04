@@ -353,6 +353,22 @@ impl ModemManager {
         Ok(())
     }
 
+    pub async fn reapply_configured_sms_storage(&self, sim_id: &str) -> anyhow::Result<()> {
+        let configured_sms_storage = self.configured_sms_storage.read().await;
+        let Some(storage) = configured_sms_storage.get(sim_id).copied() else {
+            return Ok(());
+        };
+        drop(configured_sms_storage);
+
+        let modem = self
+            .get_modem(sim_id)
+            .await
+            .ok_or_else(|| anyhow::anyhow!("Modem not found for SIM ID: {}", sim_id))?;
+
+        modem.set_sms_storage(storage).await?;
+        Ok(())
+    }
+
     pub async fn get_sms_storage_status(&self, sim_id: &str) -> anyhow::Result<Option<String>> {
         let modem = self
             .get_modem(sim_id)
