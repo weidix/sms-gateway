@@ -258,11 +258,6 @@ mod main_tests {
     }
 
     #[test]
-    fn deserializes_health_settings_and_webhooks() {
-        crate::config::assert_deserializes_health_settings_and_webhooks();
-    }
-
-    #[test]
     fn resolve_basic_auth_rejects_partial_credentials() {
         let err = resolve_basic_auth(&test_settings(Some("admin"), None)).unwrap_err();
         assert!(err.to_string().contains("username and password"));
