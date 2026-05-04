@@ -42,6 +42,11 @@ impl From<&HealthSnapshot> for AlertFingerprint {
 }
 
 #[cfg(test)]
+pub(crate) fn assert_duplicate_status_and_reason_set_does_not_emit_alert() {
+    tests::duplicate_status_and_reason_set_does_not_emit_alert();
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -78,9 +83,4 @@ mod tests {
         gate.reset();
         assert!(gate.should_emit(&unhealthy));
     }
-}
-
-#[cfg(test)]
-pub(crate) fn assert_duplicate_status_and_reason_set_does_not_emit_alert() {
-    tests::duplicate_status_and_reason_set_does_not_emit_alert();
 }

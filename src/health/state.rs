@@ -130,6 +130,11 @@ impl Default for HealthSnapshot {
 }
 
 #[cfg(test)]
+pub(crate) fn assert_state_machine_moves_to_recovering_at_threshold() {
+    tests::state_machine_moves_to_recovering_at_threshold();
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use chrono::TimeZone;
@@ -188,9 +193,4 @@ mod tests {
         );
         assert_eq!(failed.last_recovery_at, Some(original_recovery_at));
     }
-}
-
-#[cfg(test)]
-pub(crate) fn assert_state_machine_moves_to_recovering_at_threshold() {
-    tests::state_machine_moves_to_recovering_at_threshold();
 }

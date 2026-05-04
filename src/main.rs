@@ -57,6 +57,7 @@ async fn run() -> anyhow::Result<()> {
             .await
             .context("Failed to initialize ModemManager")?,
     );
+    let _health_supervisor = health::start_supervisor(modem_manager.clone(), &config.settings);
 
     let sse_manager = Arc::new(api::SseManager::new());
 
@@ -338,4 +339,17 @@ fn state_machine_moves_to_recovering_at_threshold() {
 #[test]
 fn duplicate_status_and_reason_set_does_not_emit_alert() {
     crate::health::alert::assert_duplicate_status_and_reason_set_does_not_emit_alert();
+}
+
+#[cfg(test)]
+#[test]
+fn default_recovery_plan_is_stable() {
+    crate::tests::health_tests::assert_default_recovery_plan_is_stable();
+}
+
+#[cfg(test)]
+#[tokio::test]
+async fn unhealthy_snapshot_returns_to_healthy_after_probe_success() {
+    crate::tests::health_tests::assert_unhealthy_snapshot_returns_to_healthy_after_probe_success()
+        .await;
 }
