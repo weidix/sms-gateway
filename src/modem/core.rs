@@ -41,6 +41,23 @@ pub struct Modem {
 }
 
 impl Modem {
+    fn init_commands() -> [(&'static str, &'static str); 4] {
+        [
+            ("ATE0\r\n", "Disable echo"),
+            ("AT+CMEE=1\r\n", "Enable error messages"),
+            ("AT+CMGF=0\r\n", "Set PDU mode"),
+            ("AT+CSCS=\"UCS2\"\r\n", "Set character encoding"),
+        ]
+    }
+
+    fn sms_storage_code(storage: SmsStorage) -> &'static str {
+        match storage {
+            SmsStorage::SIM => "SM",
+            SmsStorage::ME => "ME",
+            SmsStorage::MT => "MT",
+        }
+    }
+
     pub async fn new(com_port: &str, baud_rate: u32, name: &str) -> io::Result<Self> {
         let serial_stream = Self::create_serial_connection(com_port, baud_rate).await?;
 
@@ -306,14 +323,7 @@ impl Modem {
     }
 
     pub async fn init_modem(&mut self, sms_storage: Option<SmsStorage>) -> io::Result<()> {
-        let init_commands = vec![
-            ("ATE0\r\n", "Disable echo"),
-            ("AT+CMEE=1\r\n", "Enable error messages"),
-            ("AT+CMGF=0\r\n", "Set PDU mode"),
-            ("AT+CSCS=\"UCS2\"\r\n", "Set character encoding"),
-        ];
-
-        for (cmd, description) in init_commands {
+        for (cmd, description) in Self::init_commands() {
             if let Err(e) = self.send_command_with_ok(cmd).await {
                 error!("Failed to {}: {}", description, e);
                 return Err(e);
@@ -324,7 +334,7 @@ impl Modem {
             self.configure_sms_storage(storage).await?;
         }
 
-        if let Err(e) = self.init_sim_info().await {
+        if let Err(e) = self.refresh_sim_info().await {
             log::warn!(
                 "Failed to initialize SIM info for device {}: {}",
                 self.name,
@@ -336,11 +346,7 @@ impl Modem {
     }
 
     async fn configure_sms_storage(&self, storage: SmsStorage) -> io::Result<()> {
-        let storage_str = match storage {
-            SmsStorage::SIM => "SM",
-            SmsStorage::ME => "ME",
-            SmsStorage::MT => "MT",
-        };
+        let storage_str = Self::sms_storage_code(storage);
 
         let cmd = format!("AT+CPMS=\"{0}\",\"{0}\",\"{0}\"\r\n", storage_str);
 
@@ -359,7 +365,7 @@ impl Modem {
         }
     }
 
-    async fn init_sim_info(&mut self) -> anyhow::Result<()> {
+    async fn refresh_sim_info(&self) -> anyhow::Result<()> {
         let (iccid_result, imsi_result, phone_result) = tokio::join!(
             self.get_sim_iccid(),
             self.get_sim_imsi(),
@@ -389,6 +395,39 @@ impl Modem {
         }
 
         Ok(())
+    }
+
+    pub async fn probe_at(&self) -> io::Result<()> {
+        self.send_command_with_ok("AT\r\n").await.map(|_| ())
+    }
+
+    pub async fn reinitialize_runtime(&self, sms_storage: Option<SmsStorage>) -> io::Result<()> {
+        for (cmd, description) in Self::init_commands() {
+            if let Err(e) = self.send_command_with_ok(cmd).await {
+                error!("Failed to {}: {}", description, e);
+                return Err(e);
+            }
+        }
+
+        if let Some(storage) = sms_storage {
+            self.configure_sms_storage(storage).await?;
+        }
+
+        if let Err(e) = self.refresh_sim_info().await {
+            log::warn!(
+                "Failed to refresh SIM info during runtime reinitialization for device {}: {}",
+                self.name,
+                e
+            );
+        }
+
+        Ok(())
+    }
+
+    pub async fn soft_restart(&self) -> io::Result<()> {
+        self.send_command_with_ok("AT+CFUN=1,1\r\n")
+            .await
+            .map(|_| ())
     }
 
     async fn send_command_priority(&self, command: &str, priority: u8) -> io::Result<String> {
@@ -749,11 +788,7 @@ impl Modem {
     }
 
     pub async fn set_sms_storage(&self, sms_storage: SmsStorage) -> io::Result<()> {
-        let storage_str = match sms_storage {
-            SmsStorage::SIM => "SM",
-            SmsStorage::ME => "ME",
-            SmsStorage::MT => "MT",
-        };
+        let storage_str = Self::sms_storage_code(sms_storage);
 
         let cmd = format!("AT+CPMS=\"{0}\",\"{0}\",\"{0}\"\r\n", storage_str);
 
@@ -783,5 +818,10 @@ impl Modem {
                 .map(|line| line.to_string())
         })
         .await
+    }
+
+    pub async fn get_sms_storage_overview(&self) -> io::Result<Option<SmsStorageStatus>> {
+        self.get_modem_info("AT+CPMS?\r\n", SmsStorageStatus::from_response)
+            .await
     }
 }

@@ -10,7 +10,9 @@ use crate::config::{AppConfig, SmsStorage};
 use crate::db::{Contact, SimCard, Sms, SmsStatus};
 use crate::webhook;
 
-use super::types::{ModemInfo, NetworkRegistrationStatus, OperatorInfo, SignalQuality, SmsType};
+use super::types::{
+    ModemInfo, NetworkRegistrationStatus, OperatorInfo, SignalQuality, SmsStorageStatus, SmsType,
+};
 
 pub struct MockModem {
     pub com_port: String,
@@ -20,17 +22,22 @@ pub struct MockModem {
 pub struct ModemManager {
     modems: Arc<RwLock<HashMap<String, Arc<MockModem>>>>,
     sim_cards_cache: Arc<RwLock<HashMap<String, SimCard>>>,
+    configured_sms_storage: Arc<RwLock<HashMap<String, SmsStorage>>>,
 }
 
 impl ModemManager {
     pub async fn initialize(config: &AppConfig) -> anyhow::Result<Self> {
         let mut modems = HashMap::new();
         let mut sim_ids = Vec::new();
+        let mut configured_sms_storage = HashMap::new();
 
         if config.devices.is_empty() {
             for index in 0..2 {
                 let sim_id = format!("mock_sim_{}", index + 1);
                 sim_ids.push(sim_id.clone());
+                if let Some(storage) = config.settings.sms_storage {
+                    configured_sms_storage.insert(sim_id.clone(), storage);
+                }
                 modems.insert(
                     sim_id,
                     Arc::new(MockModem {
@@ -43,6 +50,9 @@ impl ModemManager {
             for (index, device) in config.devices.iter().enumerate() {
                 let sim_id = format!("mock_sim_{}", index + 1);
                 sim_ids.push(sim_id.clone());
+                if let Some(storage) = device.sms_storage.or(config.settings.sms_storage) {
+                    configured_sms_storage.insert(sim_id.clone(), storage);
+                }
                 modems.insert(
                     sim_id,
                     Arc::new(MockModem {
@@ -66,6 +76,7 @@ impl ModemManager {
         let manager = Self {
             modems: Arc::new(RwLock::new(modems)),
             sim_cards_cache: Arc::new(RwLock::new(HashMap::new())),
+            configured_sms_storage: Arc::new(RwLock::new(configured_sms_storage)),
         };
 
         manager.init_sim_cache().await?;
@@ -285,15 +296,40 @@ impl ModemManager {
 
     pub async fn set_sms_storage(
         &self,
-        _sim_id: &str,
-        _sms_storage: SmsStorage,
+        sim_id: &str,
+        sms_storage: SmsStorage,
     ) -> anyhow::Result<()> {
+        self.configured_sms_storage
+            .write()
+            .await
+            .insert(sim_id.to_string(), sms_storage);
         Ok(())
     }
 
     pub async fn get_sms_storage_status(&self, _sim_id: &str) -> anyhow::Result<Option<String>> {
         Ok(Some(
             "+CPMS: \"SM\",5,100,\"SM\",5,100,\"SM\",5,100".to_string(),
+        ))
+    }
+
+    pub async fn probe_at(&self, _sim_id: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    pub async fn reinitialize_runtime(&self, _sim_id: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    pub async fn soft_restart(&self, _sim_id: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    pub async fn get_sms_storage_overview(
+        &self,
+        _sim_id: &str,
+    ) -> anyhow::Result<Option<SmsStorageStatus>> {
+        Ok(SmsStorageStatus::from_response(
+            "+CPMS: \"SM\",5,100,\"SM\",5,100,\"SM\",5,100",
         ))
     }
 

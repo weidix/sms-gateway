@@ -15,6 +15,7 @@ use super::types::*;
 pub struct ModemManager {
     modems: Arc<RwLock<HashMap<String, Arc<Modem>>>>,
     sim_cards_cache: Arc<RwLock<HashMap<String, SimCard>>>,
+    configured_sms_storage: Arc<RwLock<HashMap<String, SmsStorage>>>,
     _initialization_semaphore: Arc<Semaphore>,
 }
 
@@ -38,14 +39,18 @@ impl ModemManager {
         }
 
         let mut modems = HashMap::new();
+        let mut configured_sms_storage = HashMap::new();
         let mut new_sim_ids = Vec::new();
         let mut failed_count = 0;
 
         while let Some(result) = initialization_futures.next().await {
             match result {
-                Ok((sim_id, modem, is_new)) => {
+                Ok((sim_id, modem, is_new, sms_storage)) => {
                     if is_new {
                         new_sim_ids.push(sim_id.clone());
+                    }
+                    if let Some(storage) = sms_storage {
+                        configured_sms_storage.insert(sim_id.clone(), storage);
                     }
                     modems.insert(sim_id, Arc::new(modem));
                 }
@@ -69,6 +74,7 @@ impl ModemManager {
         let manager = Self {
             modems: Arc::new(RwLock::new(modems)),
             sim_cards_cache: Arc::new(RwLock::new(HashMap::new())),
+            configured_sms_storage: Arc::new(RwLock::new(configured_sms_storage)),
             _initialization_semaphore: initialization_semaphore,
         };
 
@@ -87,7 +93,7 @@ impl ModemManager {
         device_id: String,
         sms_storage: Option<SmsStorage>,
         index: usize,
-    ) -> anyhow::Result<(String, Modem, bool)> {
+    ) -> anyhow::Result<(String, Modem, bool, Option<SmsStorage>)> {
         info!("Initializing modem on port {}", port);
 
         let mut modem = Modem::new(&port, baud_rate, &device_id).await?;
@@ -111,7 +117,7 @@ impl ModemManager {
             port, sim_id
         );
 
-        Ok((sim_id, modem, is_new_sim))
+        Ok((sim_id, modem, is_new_sim, sms_storage))
     }
 
     async fn is_new_sim_id(sim_id: &str) -> bool {
@@ -339,7 +345,12 @@ impl ModemManager {
             .await
             .ok_or_else(|| anyhow::anyhow!("Modem not found for SIM ID: {}", sim_id))?;
 
-        modem.set_sms_storage(sms_storage).await.map_err(Into::into)
+        modem.set_sms_storage(sms_storage).await?;
+        self.configured_sms_storage
+            .write()
+            .await
+            .insert(sim_id.to_string(), sms_storage);
+        Ok(())
     }
 
     pub async fn get_sms_storage_status(&self, sim_id: &str) -> anyhow::Result<Option<String>> {
@@ -349,6 +360,54 @@ impl ModemManager {
             .ok_or_else(|| anyhow::anyhow!("Modem not found for SIM ID: {}", sim_id))?;
 
         modem.get_sms_storage_status().await.map_err(Into::into)
+    }
+
+    pub async fn probe_at(&self, sim_id: &str) -> anyhow::Result<()> {
+        let modem = self
+            .get_modem(sim_id)
+            .await
+            .ok_or_else(|| anyhow::anyhow!("Modem not found for SIM ID: {}", sim_id))?;
+
+        modem.probe_at().await.map_err(Into::into)
+    }
+
+    pub async fn reinitialize_runtime(&self, sim_id: &str) -> anyhow::Result<()> {
+        let modem = self
+            .get_modem(sim_id)
+            .await
+            .ok_or_else(|| anyhow::anyhow!("Modem not found for SIM ID: {}", sim_id))?;
+        let sms_storage = self
+            .configured_sms_storage
+            .read()
+            .await
+            .get(sim_id)
+            .copied();
+
+        modem
+            .reinitialize_runtime(sms_storage)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn soft_restart(&self, sim_id: &str) -> anyhow::Result<()> {
+        let modem = self
+            .get_modem(sim_id)
+            .await
+            .ok_or_else(|| anyhow::anyhow!("Modem not found for SIM ID: {}", sim_id))?;
+
+        modem.soft_restart().await.map_err(Into::into)
+    }
+
+    pub async fn get_sms_storage_overview(
+        &self,
+        sim_id: &str,
+    ) -> anyhow::Result<Option<SmsStorageStatus>> {
+        let modem = self
+            .get_modem(sim_id)
+            .await
+            .ok_or_else(|| anyhow::anyhow!("Modem not found for SIM ID: {}", sim_id))?;
+
+        modem.get_sms_storage_overview().await.map_err(Into::into)
     }
 
     pub async fn get_sim_card_cached(&self, sim_id: &str) -> Option<SimCard> {
