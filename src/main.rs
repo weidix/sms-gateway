@@ -287,6 +287,18 @@ mod main_tests {
 
 #[cfg(test)]
 #[test]
+fn parses_sms_storage_status_from_cpms() {
+    crate::modem::types::assert_parses_sms_storage_status_from_cpms();
+}
+
+#[cfg(test)]
+#[test]
+fn network_registration_treats_home_and_roaming_as_registered() {
+    crate::modem::types::assert_network_registration_treats_home_and_roaming_as_registered();
+}
+
+#[cfg(test)]
+#[test]
 fn deserializes_health_settings_and_webhooks() {
     crate::config::assert_deserializes_health_settings_and_webhooks();
 }
