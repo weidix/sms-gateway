@@ -5,7 +5,7 @@ use std::{
 };
 
 use futures::stream::{FuturesUnordered, StreamExt};
-use log::{error, warn};
+use log::{error, info, warn};
 use tokio::{sync::RwLock, task::JoinHandle, time::sleep};
 
 use crate::health::state::{FailureReason, HealthSnapshot, HealthStatus};
@@ -138,23 +138,55 @@ impl HealthSupervisor {
                     .await;
             }
 
+            info!(
+                "Running health recovery for {}: step={:?}, failure_reasons={:?}, consecutive_failures={}",
+                sim_id,
+                step,
+                recovering.failure_reasons,
+                recovering.consecutive_failures
+            );
+
             if let Err(err) = self.recovery.execute_step(sim_id, *step).await {
                 error!(
-                    "Health recovery failed for {} at {:?}: {}",
-                    sim_id, step, err
+                    "Health recovery failed for {} at {:?}: {}; failure_reasons={:?}; consecutive_failures={}",
+                    sim_id,
+                    step,
+                    err,
+                    recovering.failure_reasons,
+                    recovering.consecutive_failures
                 );
                 return recovering;
             }
         }
 
+        info!(
+            "Health recovery steps finished for {}. Re-running probe with failure_reasons={:?}, consecutive_failures={}",
+            sim_id,
+            recovering.failure_reasons,
+            recovering.consecutive_failures
+        );
+
         match self.probe.run_checks(sim_id).await {
-            Ok(follow_up) if follow_up.is_healthy() => recovering.record_success(),
-            Ok(follow_up) => recovering.record_critical_failure(
-                follow_up.failed_reasons().iter().copied(),
-                step_last_action(self.recovery_plan.steps()),
-            ),
+            Ok(follow_up) if follow_up.is_healthy() => {
+                info!("Health recovery succeeded for {}", sim_id);
+                recovering.record_success()
+            }
+            Ok(follow_up) => {
+                warn!(
+                    "Health recovery follow-up probe still failing for {}: failure_reasons={:?}",
+                    sim_id,
+                    follow_up.failed_reasons()
+                );
+                recovering.record_critical_failure(
+                    follow_up.failed_reasons().iter().copied(),
+                    step_last_action(self.recovery_plan.steps()),
+                )
+            }
             Err(err) => {
-                warn!("Health probe failed after recovery for {}: {}", sim_id, err);
+                warn!(
+                    "Health probe failed after recovery for {}: {}; marking modem critical",
+                    sim_id, err
+                );
                 recovering.record_critical_failure(
                     [FailureReason::AtUnreachable],
                     step_last_action(self.recovery_plan.steps()),
@@ -169,15 +201,45 @@ impl HealthSupervisor {
         current: HealthSnapshot,
         failure_reasons: BTreeSet<FailureReason>,
     ) -> HealthSnapshot {
-        let failed = current.record_failure(
+        let auto_recovery_allowed = allows_automatic_recovery(&failure_reasons);
+        let failed = if auto_recovery_allowed {
+            current.record_failure(
+                self.failure_threshold,
+                failure_reasons.iter().copied(),
+                None,
+            )
+        } else {
+            current.record_non_recoverable_failure(
+                self.failure_threshold,
+                failure_reasons.iter().copied(),
+            )
+        };
+
+        warn!(
+            "Health probe failed for {}: failure_reasons={:?}, consecutive_failures={}, threshold={}, status={:?}, auto_recovery={}",
+            sim_id,
+            failed.failure_reasons,
+            failed.consecutive_failures,
             self.failure_threshold,
-            failure_reasons.iter().copied(),
-            None,
+            failed.current_status,
+            auto_recovery_allowed
         );
 
         if matches!(failed.current_status, HealthStatus::Recovering) {
+            warn!(
+                "Starting automatic health recovery for {} with plan {:?}",
+                sim_id,
+                self.recovery_plan.steps()
+            );
             self.recover_sim(sim_id, failed).await
         } else {
+            if !auto_recovery_allowed && failed.consecutive_failures >= self.failure_threshold {
+                warn!(
+                    "Automatic health recovery skipped for {} because failure_reasons={:?} are treated as non-recoverable",
+                    sim_id,
+                    failed.failure_reasons
+                );
+            }
             failed
         }
     }
@@ -212,4 +274,11 @@ impl HealthSupervisor {
 
 fn step_last_action(steps: &[RecoveryStep]) -> Option<crate::health::state::RecoveryAction> {
     steps.iter().rev().find_map(|step| step.recovery_action())
+}
+
+fn allows_automatic_recovery(failure_reasons: &BTreeSet<FailureReason>) -> bool {
+    !matches!(
+        failure_reasons.iter().next(),
+        Some(FailureReason::SmsStorageFull)
+    ) || failure_reasons.len() != 1
 }

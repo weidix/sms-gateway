@@ -457,6 +457,12 @@ async fn repeated_probe_errors_trigger_recovery_at_threshold() {
 
 #[cfg(test)]
 #[tokio::test]
+async fn sms_storage_full_does_not_trigger_recovery_plan() {
+    crate::tests::health_tests::assert_sms_storage_full_does_not_trigger_recovery_plan().await;
+}
+
+#[cfg(test)]
+#[tokio::test]
 async fn health_snapshot_merges_into_sim_info_response() {
     crate::api::assert_health_snapshot_merges_into_sim_info_response().await;
 }

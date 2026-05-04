@@ -109,6 +109,30 @@ impl HealthSnapshot {
         }
     }
 
+    pub fn record_non_recoverable_failure<I>(&self, failure_threshold: u64, reasons: I) -> Self
+    where
+        I: IntoIterator<Item = FailureReason>,
+    {
+        let now = Utc::now();
+        let consecutive_failures = self.consecutive_failures + 1;
+        let failure_reasons = reasons.into_iter().collect::<BTreeSet<_>>();
+        let current_status = if consecutive_failures >= failure_threshold {
+            HealthStatus::Critical
+        } else {
+            HealthStatus::Degraded
+        };
+
+        Self {
+            current_status,
+            failure_reasons,
+            consecutive_failures,
+            last_probe_at: Some(now),
+            last_ok_at: self.last_ok_at,
+            last_recovery_action: self.last_recovery_action,
+            last_recovery_at: self.last_recovery_at,
+        }
+    }
+
     pub fn record_recovery_action(&self, action: RecoveryAction) -> Self {
         Self {
             current_status: HealthStatus::Recovering,

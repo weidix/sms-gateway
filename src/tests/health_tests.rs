@@ -271,6 +271,41 @@ pub(crate) async fn assert_repeated_probe_errors_trigger_recovery_at_threshold()
     assert_eq!(snapshot.consecutive_failures, 0);
 }
 
+pub(crate) async fn assert_sms_storage_full_does_not_trigger_recovery_plan() {
+    let probe = Arc::new(SequenceProbe::new(
+        vec!["sim-1".to_string()],
+        [(
+            "sim-1",
+            vec![
+                HealthCheckResult::failure([FailureReason::SmsStorageFull]),
+                HealthCheckResult::failure([FailureReason::SmsStorageFull]),
+                HealthCheckResult::failure([FailureReason::SmsStorageFull]),
+            ],
+        )],
+    ));
+    let recovery = Arc::new(RecordingRecovery::default());
+    let supervisor = HealthSupervisor::new(probe, recovery.clone(), 3, RecoveryPlan::default());
+
+    supervisor.run_probe_cycle().await;
+    supervisor.run_probe_cycle().await;
+    supervisor.run_probe_cycle().await;
+
+    let snapshot = supervisor
+        .snapshot_for("sim-1")
+        .await
+        .expect("expected sim snapshot");
+    let recovery_events = recovery.events().await;
+
+    assert!(recovery_events.is_empty());
+    assert_eq!(snapshot.current_status, HealthStatus::Critical);
+    assert_eq!(snapshot.consecutive_failures, 3);
+    assert_eq!(
+        snapshot.failure_reasons,
+        std::collections::BTreeSet::from([FailureReason::SmsStorageFull])
+    );
+    assert!(snapshot.last_recovery_action.is_none());
+}
+
 #[derive(Default)]
 struct RecordingRecovery {
     events: Mutex<Vec<(String, RecoveryStep)>>,
