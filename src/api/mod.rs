@@ -1,5 +1,10 @@
 use fancy_regex::Regex;
-use std::{convert::Infallible, future::Future, sync::Arc, time::Duration};
+use std::{
+    convert::Infallible,
+    future::Future,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use axum::{
     extract::{Path, Query, State},
@@ -82,6 +87,46 @@ fn format_memory_status(memory_status: &str) -> String {
     }
 
     memory_status.to_string()
+}
+
+fn prepare_at_command(command: &str) -> Result<String, &'static str> {
+    let command = command.trim();
+    if command.is_empty() {
+        return Err("AT command cannot be empty");
+    }
+
+    Ok(command.to_string())
+}
+
+fn normalize_at_output(command: &str, output: &str) -> String {
+    let normalized_command = command.trim();
+    let mut lines = output
+        .replace("\r\n", "\n")
+        .replace('\r', "\n")
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+
+    if matches!(lines.first(), Some(line) if line == normalized_command) {
+        lines.remove(0);
+    }
+
+    lines.join("\n")
+}
+
+fn classify_at_command_status(output: &str) -> &'static str {
+    if output.contains("+CME ERROR")
+        || output.contains("+CMS ERROR")
+        || output.lines().any(|line| line.trim() == "ERROR")
+    {
+        "error"
+    } else if output.contains("OK") {
+        "ok"
+    } else {
+        "unknown"
+    }
 }
 
 mod auth;
@@ -229,6 +274,10 @@ pub async fn run_api(
         .route(
             "/sims/{sim_id}/storage",
             put(set_sms_storage).with_state(modem_manager.clone()),
+        )
+        .route(
+            "/sims/{sim_id}/at",
+            post(run_at_command).with_state(modem_manager.clone()),
         );
 
     if let Some((username, password)) = auth {
@@ -724,6 +773,20 @@ pub struct UpdatePhoneRequest {
     phone_number: Option<String>,
 }
 
+#[derive(Deserialize)]
+struct AtCommandRequest {
+    command: String,
+}
+
+#[derive(Serialize)]
+struct AtCommandExecutionResponse {
+    command: String,
+    output: String,
+    status: String,
+    executed_at: String,
+    duration_ms: u64,
+}
+
 async fn update_sim_alias(
     Path(sim_id): Path<String>,
     State(modem_manager): State<ModemManagerRef>,
@@ -836,6 +899,53 @@ async fn set_sms_storage(
     }
 }
 
+async fn run_at_command(
+    Path(sim_id): Path<String>,
+    State(modem_manager): State<ModemManagerRef>,
+    Json(request): Json<AtCommandRequest>,
+) -> Response {
+    let command = match prepare_at_command(&request.command) {
+        Ok(command) => command,
+        Err(message) => {
+            return (StatusCode::BAD_REQUEST, Json(json!({ "error": message }))).into_response();
+        }
+    };
+
+    if modem_manager.get_modem(&sim_id).await.is_none() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "SIM not found" })),
+        )
+            .into_response();
+    }
+
+    let started_at = chrono::Utc::now();
+    let started = Instant::now();
+    match modem_manager.execute_at_command(&sim_id, &command).await {
+        Ok(raw_output) => {
+            let output = normalize_at_output(&command, &raw_output);
+            let response = AtCommandExecutionResponse {
+                command,
+                output,
+                status: classify_at_command_status(&raw_output).to_string(),
+                executed_at: started_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                duration_ms: started.elapsed().as_millis() as u64,
+            };
+            (StatusCode::OK, Json(response)).into_response()
+        }
+        Err(error) => {
+            let response = AtCommandExecutionResponse {
+                command,
+                output: error.to_string(),
+                status: "transport_error".to_string(),
+                executed_at: started_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                duration_ms: started.elapsed().as_millis() as u64,
+            };
+            (StatusCode::BAD_GATEWAY, Json(response)).into_response()
+        }
+    }
+}
+
 fn contact_resolution_error_response(result: anyhow::Result<()>) -> Option<Response> {
     result.err().map(|err| {
         (
@@ -912,6 +1022,35 @@ mod api_handler_tests {
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let body = String::from_utf8(body.to_vec()).unwrap();
         assert!(body.contains("Failed to get contacts"));
+    }
+
+    #[test]
+    fn prepare_at_command_rejects_blank_input() {
+        let error = prepare_at_command("   ").expect_err("blank input should be rejected");
+
+        assert_eq!(error, "AT command cannot be empty");
+    }
+
+    #[test]
+    fn normalize_at_output_removes_echoed_command_and_blank_lines() {
+        let output =
+            normalize_at_output("AT+QTEMP?", "\r\nAT+QTEMP?\r\n\r\n+QTEMP: 32,31\r\nOK\r\n");
+
+        assert_eq!(output, "+QTEMP: 32,31\nOK");
+    }
+
+    #[test]
+    fn classify_at_command_status_marks_error_output() {
+        let status = classify_at_command_status("+CME ERROR: 100");
+
+        assert_eq!(status, "error");
+    }
+
+    #[test]
+    fn classify_at_command_status_marks_ok_output() {
+        let status = classify_at_command_status("+QTEMP: 32,31\nOK");
+
+        assert_eq!(status, "ok");
     }
 
     pub(crate) async fn assert_health_snapshot_merges_into_sim_info_response() {

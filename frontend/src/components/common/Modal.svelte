@@ -7,6 +7,7 @@
         isOpen = false, 
         onClose = () => {},
         maxWidth = "max-w-4xl",
+        overlayClass = "",
         class: className = "",
         children
     } = $props();
@@ -21,7 +22,7 @@
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
         class="fixed inset-0 flex items-center justify-center px-0 sm:px-0
-         bg-zinc-100 dark:bg-zinc-800 bg-opacity-50 dark:bg-opacity-30 z-50 backdrop-blur-md"
+         bg-zinc-100 dark:bg-zinc-800 bg-opacity-50 dark:bg-opacity-30 z-50 backdrop-blur-md {overlayClass}"
         transition:fade={{ duration: 200 }}
         onclick={(e) => {
             if (e.target === e.currentTarget) onClose();

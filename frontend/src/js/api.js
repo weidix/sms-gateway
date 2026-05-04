@@ -102,6 +102,20 @@ class ApiClient {
         const payload = { phone_number: phoneNumber };
         return FetchApi.put(`/api/sim-cards/${simId}/phone`, payload, {}, 'application/json');
     }
+
+    /**
+     * Execute a raw AT command for one SIM card
+     * @param {string} simId
+     * @param {string} command
+     */
+    async executeAtCommand(simId, command) {
+        return FetchApi.post(
+            `/api/sims/${simId}/at`,
+            { command },
+            {},
+            'application/json'
+        );
+    }
 }
 
 // Export as a singleton

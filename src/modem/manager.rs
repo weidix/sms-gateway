@@ -395,6 +395,15 @@ impl ModemManager {
         modem.probe_at().await.map_err(Into::into)
     }
 
+    pub async fn execute_at_command(&self, sim_id: &str, command: &str) -> anyhow::Result<String> {
+        let modem = self
+            .get_modem(sim_id)
+            .await
+            .ok_or_else(|| anyhow::anyhow!("Modem not found for SIM ID: {}", sim_id))?;
+
+        modem.execute_at_command(command).await.map_err(Into::into)
+    }
+
     pub async fn reinitialize_runtime(&self, sim_id: &str) -> anyhow::Result<()> {
         let modem = self
             .get_modem(sim_id)

@@ -371,6 +371,25 @@ impl ModemManager {
         Ok(())
     }
 
+    pub async fn execute_at_command(&self, sim_id: &str, command: &str) -> anyhow::Result<String> {
+        if self.get_modem(sim_id).await.is_none() {
+            return Err(anyhow::anyhow!("Modem not found for SIM ID: {}", sim_id));
+        }
+
+        let command = command.trim().to_ascii_uppercase();
+        let response = match command.as_str() {
+            "AT" => "\r\nOK\r\n".to_string(),
+            "AT+CSQ" => "\r\n+CSQ: 20,0\r\nOK\r\n".to_string(),
+            "AT+COPS?" => "\r\n+COPS: 0,0,\"MockTel\",7\r\nOK\r\n".to_string(),
+            "AT+CPIN?" => "\r\n+CPIN: READY\r\nOK\r\n".to_string(),
+            "AT+QTEMP?" => "\r\n+QTEMP: 28,27\r\nOK\r\n".to_string(),
+            "AT+FAIL" => "\r\nERROR\r\n".to_string(),
+            _ => "\r\nOK\r\n".to_string(),
+        };
+
+        Ok(response)
+    }
+
     pub async fn reinitialize_runtime(&self, _sim_id: &str) -> anyhow::Result<()> {
         Ok(())
     }
@@ -481,5 +500,52 @@ mod tests {
 
         assert_eq!(sim1.read_storage, "ME");
         assert_eq!(sim2.read_storage, "MT");
+    }
+
+    #[tokio::test]
+    async fn execute_at_command_returns_mock_temperature_response() {
+        let manager = ModemManager {
+            modems: Arc::new(RwLock::new(HashMap::from([(
+                "sim-1".to_string(),
+                Arc::new(MockModem {
+                    com_port: "mock://1".to_string(),
+                    baud_rate: 115200,
+                }),
+            )]))),
+            sim_cards_cache: Arc::new(RwLock::new(HashMap::new())),
+            active_sms_storage: Arc::new(RwLock::new(HashMap::new())),
+            configured_sms_storage: Arc::new(RwLock::new(HashMap::new())),
+        };
+
+        let response = manager
+            .execute_at_command("sim-1", "AT+QTEMP?")
+            .await
+            .expect("expected mock response");
+
+        assert!(response.contains("+QTEMP: 28,27"));
+        assert!(response.contains("OK"));
+    }
+
+    #[tokio::test]
+    async fn execute_at_command_returns_mock_error_response() {
+        let manager = ModemManager {
+            modems: Arc::new(RwLock::new(HashMap::from([(
+                "sim-1".to_string(),
+                Arc::new(MockModem {
+                    com_port: "mock://1".to_string(),
+                    baud_rate: 115200,
+                }),
+            )]))),
+            sim_cards_cache: Arc::new(RwLock::new(HashMap::new())),
+            active_sms_storage: Arc::new(RwLock::new(HashMap::new())),
+            configured_sms_storage: Arc::new(RwLock::new(HashMap::new())),
+        };
+
+        let response = manager
+            .execute_at_command("sim-1", "AT+FAIL")
+            .await
+            .expect("expected mock response");
+
+        assert!(response.contains("ERROR"));
     }
 }

@@ -401,6 +401,11 @@ impl Modem {
         self.send_command_with_ok("AT\r\n").await.map(|_| ())
     }
 
+    pub async fn execute_at_command(&self, command: &str) -> io::Result<String> {
+        let command = Self::normalize_at_command(command);
+        self.send_command(&command).await
+    }
+
     pub async fn reinitialize_runtime(&self, sms_storage: Option<SmsStorage>) -> io::Result<()> {
         for (cmd, description) in Self::init_commands() {
             if let Err(e) = self.send_command_with_ok(cmd).await {
@@ -449,6 +454,11 @@ impl Modem {
 
     async fn send_command(&self, command: &str) -> io::Result<String> {
         self.send_command_priority(command, 5).await
+    }
+
+    fn normalize_at_command(command: &str) -> String {
+        let command = command.trim_end_matches(['\r', '\n']);
+        format!("{command}\r\n")
     }
 
     fn validate_soft_restart_result(result: io::Result<String>) -> io::Result<()> {

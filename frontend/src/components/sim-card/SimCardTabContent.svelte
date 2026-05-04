@@ -10,6 +10,7 @@
     import SimCardBasicInfoSkeleton from "./SimCardBasicInfoSkeleton.svelte";
     import SimCardTechnicalInfoSkeleton from "./SimCardTechnicalInfoSkeleton.svelte";
     import EmptyState from "./EmptyState.svelte";
+    import AtDebugModal from "./AtDebugModal.svelte";
 
     let {
         simCard = null,
@@ -26,6 +27,7 @@
     let minLoadingTimer = null;
     let skeletonStartTime = $state(null);
     let showSkeleton = $state(false);
+    let isAtDebugOpen = $state(false);
 
     function handleRefresh() {
         if (isRefreshing) return;
@@ -98,6 +100,14 @@
             clearTimeout(minLoadingTimer);
         }
     });
+
+    function openAtDebug() {
+        isAtDebugOpen = true;
+    }
+
+    function closeAtDebug() {
+        isAtDebugOpen = false;
+    }
 </script>
 
 {#if simCard}
@@ -127,6 +137,16 @@
             </div>
 
             <div class="flex items-center gap-2">
+                <button
+                    class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-zinc-700
+                           bg-white dark:bg-zinc-900 text-gray-700 dark:text-gray-200 text-sm font-medium
+                           hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors duration-200"
+                    onclick={openAtDebug}
+                    title="Open AT debug"
+                >
+                    <Icon icon="carbon:terminal" class="w-4 h-4" />
+                    <span>AT Debug</span>
+                </button>
                 <button
                     class="p-2 rounded-lg bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-gray-400
                            hover:bg-gray-200 dark:hover:bg-zinc-700 hover:text-gray-800 dark:hover:text-gray-200
@@ -233,6 +253,14 @@
                 />
             {/if}
         </div>
+
+        <AtDebugModal
+            isOpen={isAtDebugOpen}
+            simId={simCard.id}
+            simLabel={getDisplayName(simCard)}
+            portLabel={simInfo?.com_port}
+            onClose={closeAtDebug}
+        />
     </div>
 {:else}
     <EmptyState
