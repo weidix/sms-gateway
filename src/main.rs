@@ -241,8 +241,12 @@ mod main_tests {
             username: username.map(str::to_string),
             password: password.map(str::to_string),
             read_sms_frequency: 30,
+            health_check_frequency: 30,
+            health_failure_threshold: 3,
+            health_restart_wait_seconds: 20,
             webhooks_max_concurrent: None,
             webhooks: None,
+            health_webhooks: None,
             sms_storage: None,
         }
     }
@@ -251,6 +255,11 @@ mod main_tests {
     fn resolve_basic_auth_allows_missing_credentials() {
         let auth = resolve_basic_auth(&test_settings(None, None)).unwrap();
         assert!(auth.is_none());
+    }
+
+    #[test]
+    fn deserializes_health_settings_and_webhooks() {
+        crate::config::assert_deserializes_health_settings_and_webhooks();
     }
 
     #[test]
@@ -279,4 +288,10 @@ mod main_tests {
 
         assert!(err.to_string().contains("bind failed"));
     }
+}
+
+#[cfg(test)]
+#[test]
+fn deserializes_health_settings_and_webhooks() {
+    crate::config::assert_deserializes_health_settings_and_webhooks();
 }

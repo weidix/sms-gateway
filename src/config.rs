@@ -18,8 +18,15 @@ pub struct Settings {
     pub username: Option<String>,
     pub password: Option<String>,
     pub read_sms_frequency: u64,
+    #[serde(default = "default_health_check_frequency")]
+    pub health_check_frequency: u64,
+    #[serde(default = "default_health_failure_threshold")]
+    pub health_failure_threshold: u64,
+    #[serde(default = "default_health_restart_wait_seconds")]
+    pub health_restart_wait_seconds: u64,
     pub webhooks_max_concurrent: Option<usize>,
     pub webhooks: Option<Vec<WebhookConfig>>,
+    pub health_webhooks: Option<Vec<HealthWebhookConfig>>,
     pub sms_storage: Option<SmsStorage>,
 }
 
@@ -47,6 +54,18 @@ pub enum Method {
     Patch,
     Head,
     Options,
+}
+
+fn default_health_check_frequency() -> u64 {
+    30
+}
+
+fn default_health_failure_threshold() -> u64 {
+    3
+}
+
+fn default_health_restart_wait_seconds() -> u64 {
+    20
 }
 
 impl fmt::Display for Method {
@@ -80,6 +99,16 @@ impl FromStr for Method {
     }
 }
 
+impl<'de> Deserialize<'de> for Method {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let method = String::deserialize(deserializer)?;
+        Method::from_str(&method).map_err(serde::de::Error::custom)
+    }
+}
+
 impl From<Method> for reqwest::Method {
     fn from(method: Method) -> Self {
         match method {
@@ -109,6 +138,14 @@ pub struct WebhookConfig {
     pub time_filter: Option<TimeFilter>,     // Time-based filtering
     pub message_filter: Option<MessageFilter>, // Content-based filtering
     pub include_self_sent: Option<bool>, // If true, include messages sent by the user in webhook
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct HealthWebhookConfig {
+    pub url: String,
+    pub method: Method,
+    pub headers: Option<HashMap<String, String>>,
+    pub timeout: Option<u64>,
 }
 
 #[derive(Debug, Clone)]
@@ -526,5 +563,76 @@ impl<'de> Deserialize<'de> for TimeFilter {
             end_time,
             days_of_week,
         })
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn assert_deserializes_health_settings_and_webhooks() {
+    let raw = r#"
+        [settings]
+        server_host = "127.0.0.1"
+        server_port = 8080
+        read_sms_frequency = 30
+        health_check_frequency = 45
+        health_failure_threshold = 5
+        health_restart_wait_seconds = 60
+
+        [[settings.health_webhooks]]
+        url = "https://example.com/health"
+        method = "POST"
+        timeout = 12
+
+        [settings.health_webhooks.headers]
+        Authorization = "Bearer token"
+        X-Source = "sms-gateway"
+
+        [[devices]]
+        com_port = "/dev/ttyUSB0"
+        baud_rate = 115200
+    "#;
+
+    let config = Config::builder()
+        .add_source(File::from_str(raw, config::FileFormat::Toml))
+        .build()
+        .expect("test config should build");
+
+    let app_config: AppConfig = config
+        .try_deserialize()
+        .expect("test config should deserialize");
+
+    assert_eq!(app_config.settings.health_check_frequency, 45);
+    assert_eq!(app_config.settings.health_failure_threshold, 5);
+    assert_eq!(app_config.settings.health_restart_wait_seconds, 60);
+
+    let health_webhooks = app_config
+        .settings
+        .health_webhooks
+        .expect("health webhooks should deserialize");
+    assert_eq!(health_webhooks.len(), 1);
+
+    let webhook = &health_webhooks[0];
+    assert_eq!(webhook.url, "https://example.com/health");
+    assert_eq!(webhook.method, Method::Post);
+    assert_eq!(webhook.timeout, Some(12));
+
+    let headers = webhook
+        .headers
+        .as_ref()
+        .expect("headers should deserialize");
+    assert_eq!(
+        headers.get("Authorization").map(String::as_str),
+        Some("Bearer token")
+    );
+    assert_eq!(
+        headers.get("X-Source").map(String::as_str),
+        Some("sms-gateway")
+    );
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn config_deserializes_health_settings_and_webhooks() {
+        super::assert_deserializes_health_settings_and_webhooks();
     }
 }

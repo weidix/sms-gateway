@@ -13,6 +13,11 @@ password = "your_secure_password" # Web interface password
 # SMS reading frequency in seconds
 read_sms_frequency = 30          # How often to check for new SMS messages
 
+# Modem health supervisor configuration
+health_check_frequency = 30      # How often to check modem health
+health_failure_threshold = 3     # Consecutive failures before restart
+health_restart_wait_seconds = 20 # Wait time after restart before re-checking
+
 # Webhook configuration
 webhooks_max_concurrent = 10     # Maximum concurrent webhook requests
 
@@ -73,6 +78,17 @@ source = "sms-gateway"
 contact_filter = ["+1234567890", "+0987654321"]  # Only send webhooks for these contacts
 sim_filter = ["SIM001", "SIM002"]                # Only send webhooks for these SIM cards
 include_self_sent = false                        # Include outgoing messages in webhooks
+
+# Health webhook configuration (optional)
+# Triggered by modem health supervisor events.
+[[settings.health_webhooks]]
+url = "https://your-webhook-endpoint.com/modem-health"
+method = "POST"
+timeout = 10
+
+[settings.health_webhooks.headers]
+"Content-Type" = "application/json"
+"Authorization" = "Bearer your-health-token"
 
 # Time-based filtering (optional)
 [settings.webhooks.time_filter]
