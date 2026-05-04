@@ -403,3 +403,9 @@ async fn other_sims_progress_while_one_sim_waits_in_recovery() {
 async fn health_snapshot_merges_into_sim_info_response() {
     crate::api::assert_health_snapshot_merges_into_sim_info_response().await;
 }
+
+#[cfg(test)]
+#[tokio::test]
+async fn health_snapshot_fields_stay_null_until_first_probe() {
+    crate::api::assert_health_snapshot_fields_stay_null_until_first_probe().await;
+}

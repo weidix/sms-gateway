@@ -102,16 +102,14 @@ struct SimApiState {
 fn merge_health_snapshot(mut response: Value, snapshot: Option<&HealthSnapshot>) -> Value {
     if let Value::Object(ref mut object) = response {
         let health_status = snapshot.map(|item| serialize_health_status(item.current_status));
-        let failure_reasons = snapshot
-            .map(|item| {
-                item.failure_reasons
-                    .iter()
-                    .copied()
-                    .map(serialize_failure_reason)
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        let consecutive_failures = snapshot.map_or(0, |item| item.consecutive_failures);
+        let failure_reasons = snapshot.map(|item| {
+            item.failure_reasons
+                .iter()
+                .copied()
+                .map(serialize_failure_reason)
+                .collect::<Vec<_>>()
+        });
+        let consecutive_failures = snapshot.map(|item| item.consecutive_failures);
         let last_probe_at = snapshot
             .and_then(|item| item.last_probe_at)
             .map(|item| item.to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
@@ -141,6 +139,15 @@ fn merge_health_snapshot(mut response: Value, snapshot: Option<&HealthSnapshot>)
     }
 
     response
+}
+
+async fn merge_health_snapshot_for_sim(
+    response: Value,
+    sim_id: &str,
+    health_supervisor: &HealthSupervisor,
+) -> Value {
+    let snapshot = health_supervisor.snapshot_for(sim_id).await;
+    merge_health_snapshot(response, snapshot.as_ref())
 }
 
 fn serialize_health_status(status: HealthStatus) -> &'static str {
@@ -482,8 +489,7 @@ async fn get_all_sim_info(State(state): State<SimApiState>) -> Response {
             _ => ("N/A".to_string(), 0),
         };
 
-        let snapshot = health_supervisor.snapshot_for(&sim_id).await;
-        details.push(merge_health_snapshot(json!({
+        details.push(merge_health_snapshot_for_sim(json!({
             "sim_id": sim_id,
             "name": sim_id.clone(),
             "com_port": com_port,
@@ -494,7 +500,7 @@ async fn get_all_sim_info(State(state): State<SimApiState>) -> Response {
             "sms_center": sms_center_data.as_ref().and_then(|s| s.as_ref()).map(|s| decode_sms_center(s)),
             "sim_status": sim_status_data,
             "memory_status": memory_status_data.as_ref().and_then(|s| s.as_ref()).map(|s| format_memory_status(s))
-        }), snapshot.as_ref()));
+        }), &sim_id, health_supervisor.as_ref()).await);
     }
 
     (StatusCode::OK, Json(details)).into_response()
@@ -676,10 +682,15 @@ async fn get_enhanced_sim_info(
                 memory_status: memory_status_raw.as_ref().map(|s| format_memory_status(s)),
             };
 
-            let snapshot = health_supervisor.snapshot_for(&sim_id).await;
-            let response = serde_json::to_value(enhanced_info)
-                .map(|value| merge_health_snapshot(value, snapshot.as_ref()));
-
+            let response = match serde_json::to_value(enhanced_info) {
+                Ok(value) => {
+                    Ok(
+                        merge_health_snapshot_for_sim(value, &sim_id, health_supervisor.as_ref())
+                            .await,
+                    )
+                }
+                Err(err) => Err(err),
+            };
             match response {
                 Ok(response) => (StatusCode::OK, Json(response)).into_response(),
                 Err(err) => (
@@ -696,6 +707,11 @@ async fn get_enhanced_sim_info(
 #[cfg(test)]
 pub(crate) async fn assert_health_snapshot_merges_into_sim_info_response() {
     api_handler_tests::assert_health_snapshot_merges_into_sim_info_response().await;
+}
+
+#[cfg(test)]
+pub(crate) async fn assert_health_snapshot_fields_stay_null_until_first_probe() {
+    api_handler_tests::assert_health_snapshot_fields_stay_null_until_first_probe().await;
 }
 
 #[derive(serde::Deserialize)]
@@ -866,7 +882,12 @@ mod api_handler_tests {
     use axum::body::to_bytes;
     use chrono::TimeZone;
     use serde_json::Value;
-    use std::collections::BTreeSet;
+    use std::{collections::BTreeSet, pin::Pin};
+
+    use crate::health::{
+        probe::HealthProbe,
+        recovery::{RecoveryExecutor, RecoveryPlan, RecoveryStep},
+    };
 
     #[tokio::test]
     async fn send_sms_returns_internal_server_error_when_new_contact_creation_fails() {
@@ -894,6 +915,12 @@ mod api_handler_tests {
     }
 
     pub(crate) async fn assert_health_snapshot_merges_into_sim_info_response() {
+        let supervisor = Arc::new(HealthSupervisor::new(
+            Arc::new(ApiTestProbe),
+            Arc::new(ApiTestRecovery),
+            3,
+            RecoveryPlan::default(),
+        ));
         let last_probe_at = chrono::Utc.with_ymd_and_hms(2026, 5, 4, 9, 30, 0).unwrap();
         let last_ok_at = chrono::Utc.with_ymd_and_hms(2026, 5, 4, 9, 25, 0).unwrap();
         let last_recovery_at = chrono::Utc.with_ymd_and_hms(2026, 5, 4, 9, 20, 0).unwrap();
@@ -909,13 +936,14 @@ mod api_handler_tests {
             last_recovery_action: Some(crate::health::state::RecoveryAction::RestartModem),
             last_recovery_at: Some(last_recovery_at),
         };
+        supervisor.replace_snapshot("sim-1", snapshot).await;
 
         let response = json!({
             "sim_id": "sim-1",
             "name": "sim-1",
         });
 
-        let merged = merge_health_snapshot(response, Some(&snapshot));
+        let merged = merge_health_snapshot_for_sim(response, "sim-1", supervisor.as_ref()).await;
         let merged: Value = serde_json::from_value(merged).unwrap();
 
         assert_eq!(merged["health_status"], "recovering");
@@ -928,5 +956,60 @@ mod api_handler_tests {
         assert_eq!(merged["last_ok_at"], "2026-05-04T09:25:00Z");
         assert_eq!(merged["last_recovery_action"], "restart_modem");
         assert_eq!(merged["last_recovery_at"], "2026-05-04T09:20:00Z");
+    }
+
+    pub(crate) async fn assert_health_snapshot_fields_stay_null_until_first_probe() {
+        let supervisor = Arc::new(HealthSupervisor::new(
+            Arc::new(ApiTestProbe),
+            Arc::new(ApiTestRecovery),
+            3,
+            RecoveryPlan::default(),
+        ));
+
+        let response = json!({
+            "sim_id": "sim-1",
+            "name": "sim-1",
+        });
+
+        let merged = merge_health_snapshot_for_sim(response, "sim-1", supervisor.as_ref()).await;
+        let merged: Value = serde_json::from_value(merged).unwrap();
+
+        assert!(merged["health_status"].is_null());
+        assert!(merged["failure_reasons"].is_null());
+        assert!(merged["consecutive_failures"].is_null());
+        assert!(merged["last_probe_at"].is_null());
+        assert!(merged["last_ok_at"].is_null());
+        assert!(merged["last_recovery_action"].is_null());
+        assert!(merged["last_recovery_at"].is_null());
+    }
+
+    struct ApiTestProbe;
+
+    impl HealthProbe for ApiTestProbe {
+        fn sim_ids(&self) -> Pin<Box<dyn std::future::Future<Output = Vec<String>> + Send + '_>> {
+            Box::pin(async { Vec::new() })
+        }
+
+        fn run_checks<'a>(
+            &'a self,
+            _sim_id: &str,
+        ) -> crate::health::probe::HealthFuture<
+            'a,
+            anyhow::Result<crate::health::probe::HealthCheckResult>,
+        > {
+            Box::pin(async { Err(anyhow::anyhow!("not used in api tests")) })
+        }
+    }
+
+    struct ApiTestRecovery;
+
+    impl RecoveryExecutor for ApiTestRecovery {
+        fn execute_step<'a>(
+            &'a self,
+            _sim_id: &'a str,
+            _step: RecoveryStep,
+        ) -> crate::health::probe::HealthFuture<'a, anyhow::Result<()>> {
+            Box::pin(async { Err(anyhow::anyhow!("not used in api tests")) })
+        }
     }
 }
