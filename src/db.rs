@@ -245,6 +245,8 @@ impl Sms {
         .execute(&mut *tx)
         .await?;
 
+        tx.commit().await?;
+
         Ok(sms_list)
     }
 
@@ -850,4 +852,53 @@ pub async fn db_init() -> Result<()> {
 fn get_pool() -> Result<&'static SqlitePool> {
     POOL.get()
         .ok_or(anyhow::anyhow!("Database not initialized"))
+}
+
+#[cfg(test)]
+mod db_tests {
+    use super::*;
+    use chrono::Utc;
+    use serial_test::serial;
+
+    async fn ensure_db_initialized() {
+        if POOL.get().is_none() {
+            db_init().await.unwrap();
+        }
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn query_unread_by_contact_id_persists_read_status() {
+        ensure_db_initialized().await;
+
+        let contact_id = Uuid::new_v4().to_string();
+        let contact = Contact {
+            id: contact_id.clone(),
+            name: format!("test-contact-{}", Uuid::new_v4()),
+        };
+        contact.insert().await.unwrap();
+
+        let sms = Sms {
+            id: 0,
+            contact_id: contact_id.clone(),
+            timestamp: Utc::now().naive_utc(),
+            message: "test unread message".to_string(),
+            sim_id: "test-sim".to_string(),
+            send: false,
+            status: SmsStatus::Unread,
+        };
+        let sms_id = sms.insert().await.unwrap();
+
+        let unread_messages = Sms::query_unread_by_contact_id(&contact_id).await.unwrap();
+        assert_eq!(unread_messages.len(), 1);
+
+        let persisted_status: i32 = sqlx::query_scalar("SELECT status FROM sms WHERE id = ?")
+            .bind(sms_id)
+            .fetch_one(get_pool().unwrap())
+            .await
+            .unwrap();
+        assert_eq!(SmsStatus::from(persisted_status), SmsStatus::Read);
+
+        Contact::delete_by_id(&contact_id).await.unwrap();
+    }
 }

@@ -1,6 +1,8 @@
 use std::{path::PathBuf, sync::Arc};
 
+use anyhow::Context;
 use api::SseManager;
+use config::Settings;
 use db::db_init;
 use flexi_logger::{
     colored_detailed_format, Age, Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming,
@@ -23,53 +25,37 @@ pub type ModemManagerRef = Arc<ModemManager>;
 
 #[tokio::main]
 async fn main() {
+    if let Err(err) = run().await {
+        eprintln!("Error: {}", err);
+        std::process::exit(1);
+    }
+}
+
+async fn run() -> anyhow::Result<()> {
     let param = Param::from_args();
     if let Some(command) = param.command {
         match command {
             Command::Update => {
-                if let Err(err) = update::run_update().await {
-                    eprintln!("Update failed: {}", err);
-                    std::process::exit(1);
-                }
+                update::run_update().await.context("Update failed")?;
             }
             Command::Version => {
                 println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
             }
         }
-        return;
+        return Ok(());
     }
-    if let Err(err) = log_init(&param.log_path, &param.log_level) {
-        eprintln!("Error: {}", err);
-        std::process::exit(1);
-    };
-    if let Err(err) = db_init().await {
-        eprintln!("Error: {}", err);
-        std::process::exit(1);
-    }
+    log_init(&param.log_path, &param.log_level)?;
+    db_init().await?;
     #[cfg(debug_assertions)]
-    let config = match config::AppConfig::load(&PathBuf::from("./config.toml")) {
-        Ok(config) => config,
-        Err(err) => {
-            eprintln!("Error: {}", err);
-            std::process::exit(1);
-        }
-    };
+    let config = config::AppConfig::load(&PathBuf::from("./config.toml"))?;
     #[cfg(not(debug_assertions))]
-    let config = match config::AppConfig::load(&param.config_file) {
-        Ok(config) => config,
-        Err(err) => {
-            eprintln!("Error: {}", err);
-            std::process::exit(1);
-        }
-    };
+    let config = config::AppConfig::load(&param.config_file)?;
 
-    let modem_manager = match ModemManager::initialize(&config).await {
-        Ok(manager) => Arc::new(manager),
-        Err(err) => {
-            eprintln!("Failed to initialize ModemManager: {}", err);
-            std::process::exit(1);
-        }
-    };
+    let modem_manager = Arc::new(
+        ModemManager::initialize(&config)
+            .await
+            .context("Failed to initialize ModemManager")?,
+    );
 
     let sse_manager = Arc::new(api::SseManager::new());
 
@@ -88,16 +74,7 @@ async fn main() {
         webhook_manager,
     ));
 
-    if let Ok(_) = api::run_api(
-        modem_manager.clone(),
-        &config.settings.server_host,
-        &config.settings.server_port,
-        &config.settings.username.unwrap(),
-        &config.settings.password.unwrap(),
-        sse_manager.clone(),
-    )
-    .await
-    {};
+    run_api_for_settings(modem_manager, &config.settings, sse_manager).await
 }
 
 async fn read_sms_worker(
@@ -200,3 +177,106 @@ fn log_init(log_path: &PathBuf, log_level: &LevelFilter) -> anyhow::Result<()> {
 }
 
 // SIM检测逻辑已完全移除 - 设备映射在启动时建立，运行时不再检测
+
+fn resolve_basic_auth(settings: &Settings) -> anyhow::Result<Option<(String, String)>> {
+    match (&settings.username, &settings.password) {
+        (Some(username), Some(password)) => Ok(Some((username.clone(), password.clone()))),
+        (None, None) => Ok(None),
+        _ => Err(anyhow::anyhow!(
+            "Both username and password must be set together to enable authentication"
+        )),
+    }
+}
+
+async fn invoke_api_runner<F, Fut>(
+    settings: &Settings,
+    sse_manager: Arc<SseManager>,
+    runner: F,
+) -> anyhow::Result<()>
+where
+    F: FnOnce(String, u16, Option<(String, String)>, Arc<SseManager>) -> Fut,
+    Fut: std::future::Future<Output = anyhow::Result<()>>,
+{
+    let auth = resolve_basic_auth(settings)?;
+    runner(
+        settings.server_host.clone(),
+        settings.server_port,
+        auth,
+        sse_manager,
+    )
+    .await
+}
+
+async fn run_api_for_settings(
+    modem_manager: ModemManagerRef,
+    settings: &Settings,
+    sse_manager: Arc<SseManager>,
+) -> anyhow::Result<()> {
+    invoke_api_runner(
+        settings,
+        sse_manager,
+        move |host, port, auth, sse_manager| async move {
+            api::run_api(
+                modem_manager,
+                &host,
+                &port,
+                auth.as_ref()
+                    .map(|(username, password)| (username.as_str(), password.as_str())),
+                sse_manager,
+            )
+            .await
+        },
+    )
+    .await
+}
+
+#[cfg(test)]
+mod main_tests {
+    use super::*;
+
+    fn test_settings(username: Option<&str>, password: Option<&str>) -> config::Settings {
+        config::Settings {
+            server_host: "127.0.0.1".to_string(),
+            server_port: 0,
+            username: username.map(str::to_string),
+            password: password.map(str::to_string),
+            read_sms_frequency: 30,
+            webhooks_max_concurrent: None,
+            webhooks: None,
+            sms_storage: None,
+        }
+    }
+
+    #[test]
+    fn resolve_basic_auth_allows_missing_credentials() {
+        let auth = resolve_basic_auth(&test_settings(None, None)).unwrap();
+        assert!(auth.is_none());
+    }
+
+    #[test]
+    fn resolve_basic_auth_rejects_partial_credentials() {
+        let err = resolve_basic_auth(&test_settings(Some("admin"), None)).unwrap_err();
+        assert!(err.to_string().contains("username and password"));
+    }
+
+    #[tokio::test]
+    async fn invoke_api_runner_propagates_errors() {
+        let settings = test_settings(Some("admin"), Some("secret"));
+        let sse_manager = Arc::new(api::SseManager::new());
+
+        let err = invoke_api_runner(
+            &settings,
+            sse_manager,
+            |host, port, auth, _sse_manager| async move {
+                assert_eq!(host, "127.0.0.1");
+                assert_eq!(port, 0);
+                assert_eq!(auth, Some(("admin".to_string(), "secret".to_string())));
+                Err(anyhow::anyhow!("bind failed"))
+            },
+        )
+        .await
+        .unwrap_err();
+
+        assert!(err.to_string().contains("bind failed"));
+    }
+}

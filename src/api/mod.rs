@@ -1,5 +1,5 @@
 use fancy_regex::Regex;
-use std::{convert::Infallible, sync::Arc, time::Duration};
+use std::{convert::Infallible, future::Future, sync::Arc, time::Duration};
 
 use axum::{
     extract::{Path, Query, State},
@@ -93,11 +93,10 @@ pub async fn run_api(
     modem_manager: ModemManagerRef,
     server_host: &str,
     server_port: &u16,
-    username: &str,
-    password: &str,
+    auth: Option<(&str, &str)>,
     sse_manager: Arc<SseManager>,
 ) -> anyhow::Result<()> {
-    let api = Router::new()
+    let mut api = Router::new()
         .route("/check", get(check))
         .route("/sms", get(get_sms_paginated))
         .route("/sms", post(send_sms).with_state(modem_manager.clone()))
@@ -136,11 +135,14 @@ pub async fn run_api(
         .route(
             "/sims/{sim_id}/storage",
             put(set_sms_storage).with_state(modem_manager.clone()),
-        )
-        .layer(axum::middleware::from_fn_with_state(
+        );
+
+    if let Some((username, password)) = auth {
+        api = api.layer(axum::middleware::from_fn_with_state(
             (username.to_string(), password.to_string()),
             auth::basic_auth,
         ));
+    }
 
     let app = Router::new()
         .nest_service("/api", api)
@@ -204,7 +206,10 @@ async fn send_sms(
     Json(mut payload): Json<SmsPayload>,
 ) -> impl IntoResponse {
     if payload.new {
-        payload.contact.find_or_create().await.unwrap();
+        let contact_result = payload.contact.find_or_create().await;
+        if let Some(response) = contact_resolution_error_response(contact_result) {
+            return response;
+        }
     }
 
     match modem_manager
@@ -421,14 +426,12 @@ async fn check() -> impl IntoResponse {
     StatusCode::NO_CONTENT
 }
 
-async fn get_contacts() -> Json<Vec<Contact>> {
-    let contacts = Contact::query_all().await.unwrap();
-    Json(contacts)
+async fn get_contacts() -> Response {
+    contacts_response_with(Contact::query_all).await
 }
 
-async fn get_conversation() -> Json<Vec<Conversation>> {
-    let conversation = Conversation::query_all().await.unwrap();
-    Json(conversation)
+async fn get_conversation() -> Response {
+    conversations_response_with(Conversation::query_all).await
 }
 
 async fn create_contact(Json(payload): Json<Contact>) -> Response {
@@ -704,5 +707,76 @@ async fn set_sms_storage(
             Json(json!({"error": format!("Failed to set SMS storage: {}", e)})),
         )
             .into_response(),
+    }
+}
+
+fn contact_resolution_error_response(result: anyhow::Result<()>) -> Option<Response> {
+    result.err().map(|err| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to prepare contact: {}", err),
+        )
+            .into_response()
+    })
+}
+
+async fn contacts_response_with<F, Fut>(fetch_contacts: F) -> Response
+where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = anyhow::Result<Vec<Contact>>>,
+{
+    match fetch_contacts().await {
+        Ok(contacts) => Json(contacts).into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to get contacts: {}", err),
+        )
+            .into_response(),
+    }
+}
+
+async fn conversations_response_with<F, Fut>(fetch_conversations: F) -> Response
+where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = anyhow::Result<Vec<Conversation>>>,
+{
+    match fetch_conversations().await {
+        Ok(conversations) => Json(conversations).into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to get conversations: {}", err),
+        )
+            .into_response(),
+    }
+}
+
+#[cfg(test)]
+mod api_handler_tests {
+    use super::*;
+    use axum::body::to_bytes;
+
+    #[tokio::test]
+    async fn send_sms_returns_internal_server_error_when_new_contact_creation_fails() {
+        let response =
+            contact_resolution_error_response(Err(anyhow::anyhow!("database unavailable")))
+                .expect("expected contact resolution to fail");
+
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = String::from_utf8(body.to_vec()).unwrap();
+        assert!(body.contains("Failed to prepare contact"));
+    }
+
+    #[tokio::test]
+    async fn get_contacts_returns_internal_server_error_when_query_fails() {
+        let response =
+            contacts_response_with(|| async { Err(anyhow::anyhow!("database unavailable")) }).await;
+
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = String::from_utf8(body.to_vec()).unwrap();
+        assert!(body.contains("Failed to get contacts"));
     }
 }
