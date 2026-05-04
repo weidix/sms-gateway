@@ -21,6 +21,49 @@
             </div>
         </div>
     </div>
+
+    <!-- Health Panel Skeleton -->
+    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3 bg-gray-50/80 dark:bg-gray-900/30">
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 bg-gray-300 dark:bg-gray-600 rounded animate-pulse"></div>
+            <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-12 animate-pulse"></div>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2">
+            <div class="text-sm">
+                <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-24 animate-pulse"></div>
+                <div class="h-6 bg-gray-300 dark:bg-gray-600 rounded-full w-20 mt-2 animate-pulse"></div>
+            </div>
+
+            <div class="text-sm">
+                <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-28 animate-pulse"></div>
+                <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-10 mt-2 animate-pulse"></div>
+            </div>
+
+            <div class="text-sm sm:col-span-2">
+                <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-24 animate-pulse"></div>
+                <div class="flex flex-wrap gap-2 mt-2">
+                    <div class="h-6 bg-gray-300 dark:bg-gray-600 rounded-full w-24 animate-pulse"></div>
+                    <div class="h-6 bg-gray-300 dark:bg-gray-600 rounded-full w-28 animate-pulse"></div>
+                </div>
+            </div>
+
+            <div class="text-sm">
+                <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-32 animate-pulse"></div>
+                <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-36 mt-2 animate-pulse"></div>
+            </div>
+
+            <div class="text-sm">
+                <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-32 animate-pulse"></div>
+                <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-28 mt-2 animate-pulse"></div>
+            </div>
+
+            <div class="text-sm">
+                <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-28 animate-pulse"></div>
+                <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-36 mt-2 animate-pulse"></div>
+            </div>
+        </div>
+    </div>
     
     <!-- Enhanced Information Section -->
     <div class="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
