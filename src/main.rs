@@ -7,6 +7,7 @@ use db::db_init;
 use flexi_logger::{
     colored_detailed_format, Age, Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming,
 };
+use health::state::HealthStatus;
 use log::LevelFilter;
 use modem::{ModemManager, SmsType};
 use structopt::StructOpt;
@@ -68,13 +69,15 @@ async fn run() -> anyhow::Result<()> {
         _ => None,
     };
 
+    let health_supervisor = health::start_supervisor(modem_manager.clone(), &config.settings);
+
     tokio::spawn(read_sms_worker(
         modem_manager.clone(),
+        health_supervisor.clone(),
         config.settings.read_sms_frequency,
         sse_manager.clone(),
         webhook_manager,
     ));
-    let health_supervisor = health::start_supervisor(modem_manager.clone(), &config.settings);
 
     run_api_for_settings(
         modem_manager,
@@ -87,21 +90,46 @@ async fn run() -> anyhow::Result<()> {
 
 async fn read_sms_worker(
     modem_manager: ModemManagerRef,
+    health_supervisor: Arc<health::supervisor::HealthSupervisor>,
     read_sms_frequency: u64,
     sse_manager: Arc<SseManager>,
     webhook_manager: Option<webhook::WebhookManager>,
 ) {
     loop {
-        modem_manager
-            .read_all_sms_async(
-                SmsType::RecUnread,
-                sse_manager.clone(),
-                webhook_manager.clone(),
-            )
-            .await;
+        for sim_id in modem_manager.get_sim_ids().await {
+            let snapshot = health_supervisor.snapshot_for(&sim_id).await;
+            if !should_poll_sms_for_health_status(snapshot.as_ref().map(|item| item.current_status))
+            {
+                log::debug!(
+                    "Skipping SMS polling for {} while health supervisor is in {:?}",
+                    sim_id,
+                    snapshot.map(|item| item.current_status)
+                );
+                continue;
+            }
+
+            if let Err(err) = modem_manager
+                .read_sms_async_insert(
+                    &sim_id,
+                    SmsType::RecUnread,
+                    sse_manager.clone(),
+                    webhook_manager.clone(),
+                )
+                .await
+            {
+                log::error!("Failed to read SMS for {}: {}", sim_id, err);
+            }
+        }
 
         tokio::time::sleep(tokio::time::Duration::from_secs(read_sms_frequency)).await;
     }
+}
+
+fn should_poll_sms_for_health_status(status: Option<HealthStatus>) -> bool {
+    !matches!(
+        status,
+        Some(HealthStatus::Recovering) | Some(HealthStatus::Critical)
+    )
 }
 
 #[derive(Debug, StructOpt)]
@@ -265,6 +293,23 @@ mod main_tests {
     fn resolve_basic_auth_allows_missing_credentials() {
         let auth = resolve_basic_auth(&test_settings(None, None)).unwrap();
         assert!(auth.is_none());
+    }
+
+    #[test]
+    fn sms_polling_pauses_while_supervisor_is_recovering_or_critical() {
+        assert!(should_poll_sms_for_health_status(None));
+        assert!(should_poll_sms_for_health_status(Some(
+            HealthStatus::Healthy
+        )));
+        assert!(should_poll_sms_for_health_status(Some(
+            HealthStatus::Degraded
+        )));
+        assert!(!should_poll_sms_for_health_status(Some(
+            HealthStatus::Recovering
+        )));
+        assert!(!should_poll_sms_for_health_status(Some(
+            HealthStatus::Critical
+        )));
     }
 
     #[test]
