@@ -78,7 +78,7 @@ fn normalize_version(tag: &str) -> String {
     let trimmed = tag.trim();
     let trimmed = trimmed.strip_prefix('v').unwrap_or(trimmed);
     trimmed
-        .split(|ch| ch == '-' || ch == '+')
+        .split(['-', '+'])
         .next()
         .unwrap_or(trimmed)
         .to_string()

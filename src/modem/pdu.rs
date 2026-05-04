@@ -21,7 +21,7 @@ fn parse_number(number: &str) -> anyhow::Result<(u8, String)> {
     let addr_type = if number.starts_with('+') { 0x91 } else { 0x81 };
 
     let mut chars: Vec<char> = cleaned_number.chars().collect();
-    if chars.len() % 2 != 0 {
+    if !chars.len().is_multiple_of(2) {
         chars.push('F');
     }
 

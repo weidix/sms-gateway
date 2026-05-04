@@ -5,9 +5,29 @@ use std::collections::HashMap;
 use crate::db::ModemSMS;
 
 // --------- Multipart SMS Handler ----------
+type MultipartKey = (u8, u8);
+
+struct PendingMultipart {
+    timestamp: NaiveDateTime,
+    sender: String,
+    message_parts: Vec<Option<String>>,
+    original_indices: Vec<u32>,
+}
+
+struct MultipartPart {
+    reference: u8,
+    total: u8,
+    current: u8,
+    message: String,
+    timestamp: NaiveDateTime,
+    sender: String,
+    index: u32,
+    sim_id: String,
+}
+
 struct MultipartHandler {
-    // (reference number, total parts) -> (timestamp, sender, message parts, original indices)
-    pending_parts: HashMap<(u8, u8), (NaiveDateTime, String, Vec<Option<String>>, Vec<u32>)>,
+    // (reference number, total parts) -> multipart state
+    pending_parts: HashMap<MultipartKey, PendingMultipart>,
 }
 
 impl MultipartHandler {
@@ -18,58 +38,49 @@ impl MultipartHandler {
     }
 
     /// Adds a part of a multipart SMS and returns the combined message when all parts are collected
-    fn add_part(
-        &mut self,
-        reference: u8,
-        total: u8,
-        current: u8,
-        message: String,
-        timestamp: NaiveDateTime,
-        sender: String,
-        index: u32,
-        sim_id: String,
-    ) -> Option<ModemSMS> {
+    fn add_part(&mut self, part: MultipartPart) -> Option<ModemSMS> {
         // Validate parameters
-        if current == 0 || current > total {
+        if part.current == 0 || part.current > part.total {
             return None;
         }
 
-        let key = (reference, total);
-        let entry = self.pending_parts.entry(key).or_insert_with(|| {
-            (
-                timestamp,
-                sender.clone(),
-                vec![None; total as usize],
-                Vec::new(),
-            )
-        });
+        let key = (part.reference, part.total);
+        let entry = self
+            .pending_parts
+            .entry(key)
+            .or_insert_with(|| PendingMultipart {
+                timestamp: part.timestamp,
+                sender: part.sender.clone(),
+                message_parts: vec![None; part.total as usize],
+                original_indices: Vec::new(),
+            });
 
         // Store current part
-        entry.2[current as usize - 1] = Some(message);
-        entry.3.push(index);
+        entry.message_parts[part.current as usize - 1] = Some(part.message);
+        entry.original_indices.push(part.index);
 
         // Check if all parts are collected
-        if entry.2.iter().all(Option::is_some) {
+        if entry.message_parts.iter().all(Option::is_some) {
             let combined = entry
-                .2
+                .message_parts
                 .iter()
                 .filter_map(|x| x.as_ref())
                 .fold(String::new(), |acc, s| acc + s);
 
             log::info!(
                 "多段短信组合完成: 引用{}, 总{}段, 最终消息长度: {}",
-                reference,
-                total,
+                part.reference,
+                part.total,
                 combined.len()
             );
 
             // Create the result before removing from pending
             let result = Some(ModemSMS {
-                contact: entry.1.clone(),
-                timestamp: entry.0,
+                contact: entry.sender.clone(),
+                timestamp: entry.timestamp,
                 message: combined,
                 send: false,
-                sim_id,
+                sim_id: part.sim_id,
             });
 
             // Remove the completed multipart message from pending
@@ -77,12 +88,12 @@ impl MultipartHandler {
 
             result
         } else {
-            let parts_received = entry.2.iter().filter(|x| x.is_some()).count();
+            let parts_received = entry.message_parts.iter().filter(|x| x.is_some()).count();
             log::debug!(
                 "多段短信进度: 引用{}, 已收到{}/{}段",
-                reference,
+                part.reference,
                 parts_received,
-                total
+                part.total
             );
             None
         }
@@ -145,16 +156,16 @@ pub fn parse_pdu_sms(cmgl_entries: &str, sim_id: &str) -> Vec<ModemSMS> {
                     total,
                     content.len()
                 );
-                if let Some(sms) = handler.add_part(
+                if let Some(sms) = handler.add_part(MultipartPart {
                     reference,
                     total,
                     current,
-                    content,
+                    message: content,
                     timestamp,
-                    sender.clone(),
+                    sender: sender.clone(),
                     index,
-                    String::from(sim_id),
-                ) {
+                    sim_id: String::from(sim_id),
+                }) {
                     log::info!("多段短信完整，添加到消息列表");
                     messages.push(sms);
                 }

@@ -655,9 +655,9 @@ impl Conversation {
 }
 
 impl ModemSMS {
-    pub async fn get_contact_id<'a>(
+    pub async fn get_contact_id(
         &self,
-        transaction: &'a mut Transaction<'_, Sqlite>,
+        transaction: &mut Transaction<'_, Sqlite>,
     ) -> Result<String> {
         let contact_id = sqlx::query_scalar::<_, String>(
             r#"
