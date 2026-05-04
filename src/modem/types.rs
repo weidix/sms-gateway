@@ -189,6 +189,12 @@ impl ModemInfo {
 }
 
 #[cfg(test)]
+pub(crate) use tests::{
+    assert_network_registration_treats_home_and_roaming_as_registered,
+    assert_parses_sms_storage_status_from_cpms,
+};
+
+#[cfg(test)]
 mod tests {
     use super::{NetworkRegistrationStatus, SmsStorageStatus};
 
@@ -222,9 +228,3 @@ mod tests {
         assert!(!searching.is_registered());
     }
 }
-
-#[cfg(test)]
-pub(crate) use tests::{
-    assert_network_registration_treats_home_and_roaming_as_registered,
-    assert_parses_sms_storage_status_from_cpms,
-};
