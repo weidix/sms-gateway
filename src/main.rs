@@ -290,3 +290,27 @@ mod main_tests {
 fn deserializes_health_settings_and_webhooks() {
     crate::config::assert_deserializes_health_settings_and_webhooks();
 }
+
+#[cfg(test)]
+#[test]
+fn rejects_zero_health_check_frequency() {
+    crate::config::assert_rejects_zero_health_check_frequency();
+}
+
+#[cfg(test)]
+#[test]
+fn rejects_zero_health_failure_threshold() {
+    crate::config::assert_rejects_zero_health_failure_threshold();
+}
+
+#[cfg(test)]
+#[test]
+fn rejects_zero_health_restart_wait_seconds() {
+    crate::config::assert_rejects_zero_health_restart_wait_seconds();
+}
+
+#[cfg(test)]
+#[test]
+fn rejects_invalid_health_webhook_config() {
+    crate::config::assert_rejects_invalid_health_webhook_config();
+}

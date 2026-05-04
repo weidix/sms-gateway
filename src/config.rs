@@ -206,6 +206,32 @@ impl AppConfig {
 
 /// Validate required configuration fields
 fn test_config(app_config: &AppConfig) -> Result<()> {
+    fn validate_health_webhook_config(health_webhook: &HealthWebhookConfig) -> Result<()> {
+        if health_webhook.url.trim().is_empty() {
+            anyhow::bail!("Health webhook URL cannot be empty");
+        }
+        if !(health_webhook.url.starts_with("http://")
+            || health_webhook.url.starts_with("https://"))
+        {
+            anyhow::bail!(
+                "Health webhook URL must start with http:// or https:// (got: {})",
+                health_webhook.url
+            );
+        }
+        if let Some(headers) = &health_webhook.headers {
+            for key in headers.keys() {
+                if key.trim().is_empty() {
+                    anyhow::bail!("Health webhook header key cannot be empty");
+                }
+            }
+        }
+        if matches!(health_webhook.timeout, Some(0)) {
+            anyhow::bail!("Health webhook timeout cannot be zero");
+        }
+
+        Ok(())
+    }
+
     // Validate SETTINGS section
     if app_config.settings.server_host.trim().is_empty() {
         anyhow::bail!("Fatal: server_host is not set");
@@ -221,6 +247,11 @@ fn test_config(app_config: &AppConfig) -> Result<()> {
     }
     if app_config.settings.health_restart_wait_seconds == 0 {
         anyhow::bail!("Fatal: health_restart_wait_seconds must be greater than 0");
+    }
+    if let Some(health_webhooks) = &app_config.settings.health_webhooks {
+        for health_webhook in health_webhooks {
+            validate_health_webhook_config(health_webhook)?;
+        }
     }
 
     // Validate DEVICES section
@@ -655,6 +686,168 @@ fn parse_and_validate_test_config(raw: &str) -> Result<AppConfig> {
 }
 
 #[cfg(test)]
+pub(crate) fn assert_rejects_zero_health_check_frequency() {
+    let raw = r#"
+        [settings]
+        server_host = "127.0.0.1"
+        server_port = 8080
+        read_sms_frequency = 30
+        health_check_frequency = 0
+        health_failure_threshold = 3
+        health_restart_wait_seconds = 20
+
+        [[devices]]
+        com_port = "/dev/ttyUSB0"
+        baud_rate = 115200
+    "#;
+
+    let err = parse_and_validate_test_config(raw).unwrap_err();
+    assert!(err.to_string().contains("health_check_frequency"));
+}
+
+#[cfg(test)]
+pub(crate) fn assert_rejects_zero_health_failure_threshold() {
+    let raw = r#"
+        [settings]
+        server_host = "127.0.0.1"
+        server_port = 8080
+        read_sms_frequency = 30
+        health_check_frequency = 30
+        health_failure_threshold = 0
+        health_restart_wait_seconds = 20
+
+        [[devices]]
+        com_port = "/dev/ttyUSB0"
+        baud_rate = 115200
+    "#;
+
+    let err = parse_and_validate_test_config(raw).unwrap_err();
+    assert!(err.to_string().contains("health_failure_threshold"));
+}
+
+#[cfg(test)]
+pub(crate) fn assert_rejects_zero_health_restart_wait_seconds() {
+    let raw = r#"
+        [settings]
+        server_host = "127.0.0.1"
+        server_port = 8080
+        read_sms_frequency = 30
+        health_check_frequency = 30
+        health_failure_threshold = 3
+        health_restart_wait_seconds = 0
+
+        [[devices]]
+        com_port = "/dev/ttyUSB0"
+        baud_rate = 115200
+    "#;
+
+    let err = parse_and_validate_test_config(raw).unwrap_err();
+    assert!(err.to_string().contains("health_restart_wait_seconds"));
+}
+
+#[cfg(test)]
+pub(crate) fn assert_rejects_invalid_health_webhook_config() {
+    let cases = [
+        (
+            "empty_url",
+            r#"
+                [settings]
+                server_host = "127.0.0.1"
+                server_port = 8080
+                read_sms_frequency = 30
+                health_check_frequency = 30
+                health_failure_threshold = 3
+                health_restart_wait_seconds = 20
+
+                [[settings.health_webhooks]]
+                url = ""
+                method = "POST"
+
+                [[devices]]
+                com_port = "/dev/ttyUSB0"
+                baud_rate = 115200
+            "#,
+            "URL cannot be empty",
+        ),
+        (
+            "invalid_scheme",
+            r#"
+                [settings]
+                server_host = "127.0.0.1"
+                server_port = 8080
+                read_sms_frequency = 30
+                health_check_frequency = 30
+                health_failure_threshold = 3
+                health_restart_wait_seconds = 20
+
+                [[settings.health_webhooks]]
+                url = "ftp://example.com/health"
+                method = "POST"
+
+                [[devices]]
+                com_port = "/dev/ttyUSB0"
+                baud_rate = 115200
+            "#,
+            "http:// or https://",
+        ),
+        (
+            "empty_header_key",
+            r#"
+                [settings]
+                server_host = "127.0.0.1"
+                server_port = 8080
+                read_sms_frequency = 30
+                health_check_frequency = 30
+                health_failure_threshold = 3
+                health_restart_wait_seconds = 20
+
+                [[settings.health_webhooks]]
+                url = "https://example.com/health"
+                method = "POST"
+
+                [settings.health_webhooks.headers]
+                "" = "value"
+
+                [[devices]]
+                com_port = "/dev/ttyUSB0"
+                baud_rate = 115200
+            "#,
+            "header key cannot be empty",
+        ),
+        (
+            "zero_timeout",
+            r#"
+                [settings]
+                server_host = "127.0.0.1"
+                server_port = 8080
+                read_sms_frequency = 30
+                health_check_frequency = 30
+                health_failure_threshold = 3
+                health_restart_wait_seconds = 20
+
+                [[settings.health_webhooks]]
+                url = "https://example.com/health"
+                method = "POST"
+                timeout = 0
+
+                [[devices]]
+                com_port = "/dev/ttyUSB0"
+                baud_rate = 115200
+            "#,
+            "timeout cannot be zero",
+        ),
+    ];
+
+    for (case_name, raw, expected_error) in cases {
+        let err = parse_and_validate_test_config(raw).unwrap_err();
+        assert!(
+            err.to_string().contains(expected_error),
+            "case {case_name} expected error containing '{expected_error}', got '{err}'"
+        );
+    }
+}
+
+#[cfg(test)]
 mod tests {
     #[test]
     fn config_deserializes_health_settings_and_webhooks() {
@@ -662,22 +855,22 @@ mod tests {
     }
 
     #[test]
-    fn rejects_zero_health_settings() {
-        let raw = r#"
-            [settings]
-            server_host = "127.0.0.1"
-            server_port = 8080
-            read_sms_frequency = 30
-            health_check_frequency = 0
-            health_failure_threshold = 0
-            health_restart_wait_seconds = 0
+    fn config_rejects_zero_health_check_frequency() {
+        super::assert_rejects_zero_health_check_frequency();
+    }
 
-            [[devices]]
-            com_port = "/dev/ttyUSB0"
-            baud_rate = 115200
-        "#;
+    #[test]
+    fn config_rejects_zero_health_failure_threshold() {
+        super::assert_rejects_zero_health_failure_threshold();
+    }
 
-        let err = super::parse_and_validate_test_config(raw).unwrap_err();
-        assert!(err.to_string().contains("health_check_frequency"));
+    #[test]
+    fn config_rejects_zero_health_restart_wait_seconds() {
+        super::assert_rejects_zero_health_restart_wait_seconds();
+    }
+
+    #[test]
+    fn config_rejects_invalid_health_webhook_config() {
+        super::assert_rejects_invalid_health_webhook_config();
     }
 }
