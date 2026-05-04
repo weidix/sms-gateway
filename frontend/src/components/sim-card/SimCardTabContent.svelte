@@ -5,6 +5,7 @@
     import { cubicOut } from "svelte/easing";
     import { onDestroy } from "svelte";
     import SimCardBasicInfo from "./SimCardBasicInfo.svelte";
+    import SimCardHealthInfo from "./SimCardHealthInfo.svelte";
     import SimCardTechnicalInfo from "./SimCardTechnicalInfo.svelte";
     import SimCardBasicInfoSkeleton from "./SimCardBasicInfoSkeleton.svelte";
     import SimCardTechnicalInfoSkeleton from "./SimCardTechnicalInfoSkeleton.svelte";
@@ -153,26 +154,74 @@
         <div class="overflow-y-auto max-h-[60vh] sm:max-h-none">
             {#if showSkeleton || (isLoading && !simInfo) || isRefreshing}
                 <!-- Skeleton loading state -->
-                <div 
-                    class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 min-h-[18rem]"
+                <div
+                    class="space-y-4 lg:space-y-6 min-h-[18rem]"
                     in:fade={{ duration: 200 }}
                 >
-                    <SimCardBasicInfoSkeleton />
-                    <SimCardTechnicalInfoSkeleton />
+                    <div class="w-full">
+                        <div class="border border-gray-200 dark:border-zinc-700 rounded-lg p-4 sm:p-5 space-y-4 bg-white dark:bg-zinc-900/30">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-4 h-4 bg-gray-300 dark:bg-gray-600 rounded animate-pulse"></div>
+                                    <div class="h-5 bg-gray-300 dark:bg-gray-600 rounded w-16 animate-pulse"></div>
+                                </div>
+                                <div class="h-6 bg-gray-300 dark:bg-gray-600 rounded-full w-24 animate-pulse"></div>
+                            </div>
+
+                            <div class="grid gap-4 border-t border-gray-200 pt-4 dark:border-zinc-700 sm:grid-cols-2 lg:grid-cols-3">
+                                <div class="space-y-2">
+                                    <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-24 animate-pulse"></div>
+                                    <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-20 animate-pulse"></div>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-28 animate-pulse"></div>
+                                    <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-10 animate-pulse"></div>
+                                </div>
+                                <div class="space-y-2 sm:col-span-2 lg:col-span-3">
+                                    <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-24 animate-pulse"></div>
+                                    <div class="flex flex-wrap gap-2">
+                                        <div class="h-6 bg-gray-300 dark:bg-gray-600 rounded-full w-24 animate-pulse"></div>
+                                        <div class="h-6 bg-gray-300 dark:bg-gray-600 rounded-full w-28 animate-pulse"></div>
+                                    </div>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-32 animate-pulse"></div>
+                                    <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-36 animate-pulse"></div>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-32 animate-pulse"></div>
+                                    <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-28 animate-pulse"></div>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-28 animate-pulse"></div>
+                                    <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-36 animate-pulse"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+                        <SimCardBasicInfoSkeleton />
+                        <SimCardTechnicalInfoSkeleton />
+                    </div>
                 </div>
             {:else if simInfo}
                 <!-- Actual content -->
                 <div
-                    class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6"
+                    class="space-y-4 lg:space-y-6"
                     in:fade={{ delay: 100, duration: 300 }}
                 >
-                    <SimCardBasicInfo
-                        {simCard}
-                        {simInfo}
-                        {onUpdatePhone}
-                        {onUpdateAlias}
-                    />
-                    <SimCardTechnicalInfo {simInfo} />
+                    <SimCardHealthInfo {simInfo} />
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+                        <SimCardBasicInfo
+                            {simCard}
+                            {simInfo}
+                            {onUpdatePhone}
+                            {onUpdateAlias}
+                        />
+                        <SimCardTechnicalInfo {simInfo} />
+                    </div>
                 </div>
             {:else}
                 <!-- Error state -->

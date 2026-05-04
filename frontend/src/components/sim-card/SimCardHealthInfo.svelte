@@ -89,20 +89,26 @@
 </script>
 
 {#if hasAnyHealthData}
-    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3 bg-gray-50/80 dark:bg-gray-900/30">
-        <div class="flex items-center gap-2">
-            <Icon icon="mage:activity" class="w-4 h-4 text-gray-500" />
-            <h5 class="text-sm font-medium text-gray-700 dark:text-gray-300">Health</h5>
+    <div class="border border-gray-200 dark:border-zinc-700 rounded-lg p-4 sm:p-5 space-y-4 bg-white dark:bg-zinc-900/30">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div class="flex items-center gap-2">
+                <Icon icon="mage:activity" class="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300">Health</h4>
+            </div>
+
+            {#if healthBadge}
+                <span class={`inline-flex items-center self-start rounded-full px-2.5 py-1 text-xs font-semibold ${healthBadge.badgeClass}`}>
+                    {healthBadge.label}
+                </span>
+            {/if}
         </div>
 
-        <div class="grid gap-3 sm:grid-cols-2">
+        <div class="grid gap-4 border-t border-gray-200 pt-4 dark:border-zinc-700 sm:grid-cols-2 lg:grid-cols-3">
             <div class="text-sm">
                 <div class="text-gray-500 dark:text-gray-400">Current Status</div>
                 <div class="mt-1">
                     {#if healthBadge}
-                        <span class={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${healthBadge.badgeClass}`}>
-                            {healthBadge.label}
-                        </span>
+                        <span class="font-medium text-gray-800 dark:text-gray-200">{healthBadge.label}</span>
                     {:else}
                         <span class="font-medium text-gray-700 dark:text-gray-300">Unavailable</span>
                     {/if}
@@ -116,7 +122,7 @@
                 </div>
             </div>
 
-            <div class="text-sm sm:col-span-2">
+            <div class="text-sm sm:col-span-2 lg:col-span-3">
                 <div class="text-gray-500 dark:text-gray-400">Failure Reasons</div>
                 <div class="mt-1">
                     {#if failureReasons === null}
@@ -126,7 +132,7 @@
                     {:else}
                         <div class="flex flex-wrap gap-2">
                             {#each failureReasons as reason}
-                                <span class="inline-flex items-center rounded-full bg-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                <span class="inline-flex items-center rounded-full bg-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-zinc-800 dark:text-gray-300">
                                     {formatLabel(reason)}
                                 </span>
                             {/each}
