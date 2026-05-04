@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
+use futures::stream::{FuturesUnordered, StreamExt};
 use log::{error, warn};
 use tokio::{sync::RwLock, task::JoinHandle, time::sleep};
 
@@ -46,12 +47,23 @@ impl HealthSupervisor {
     }
 
     pub async fn run_probe_cycle(&self) -> BTreeMap<String, HealthSnapshot> {
+        let mut tasks = FuturesUnordered::new();
+
         for sim_id in self.probe.sim_ids().await {
             let current = self
                 .snapshot_for(&sim_id)
                 .await
                 .unwrap_or_else(HealthSnapshot::new);
-            let next = self.run_probe_cycle_for_sim(&sim_id, current).await;
+
+            tasks.push(async move {
+                (
+                    sim_id.clone(),
+                    self.run_probe_cycle_for_sim(&sim_id, current).await,
+                )
+            });
+        }
+
+        while let Some((sim_id, next)) = tasks.next().await {
             self.replace_snapshot(&sim_id, next).await;
         }
 

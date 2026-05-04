@@ -383,3 +383,9 @@ async fn failed_reprobe_after_recovery_becomes_critical() {
 fn d_probe_uses_configured_receive_storage_semantics() {
     crate::health::probe::assert_d_probe_uses_configured_receive_storage_semantics();
 }
+
+#[cfg(test)]
+#[tokio::test]
+async fn other_sims_progress_while_one_sim_waits_in_recovery() {
+    crate::tests::health_tests::assert_other_sims_progress_while_one_sim_waits_in_recovery().await;
+}

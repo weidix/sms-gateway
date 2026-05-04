@@ -4,7 +4,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, Notify};
+use tokio::time::{timeout, Duration};
 
 use crate::health::probe::{HealthCheckResult, HealthProbe};
 use crate::health::recovery::{RecoveryExecutor, RecoveryPlan, RecoveryStep};
@@ -160,6 +161,52 @@ pub(crate) async fn assert_failed_reprobe_after_recovery_becomes_critical() {
         .contains(&FailureReason::ReadSmsFailed));
 }
 
+pub(crate) async fn assert_other_sims_progress_while_one_sim_waits_in_recovery() {
+    let probe = Arc::new(SequenceProbe::new(
+        vec!["sim-a".to_string(), "sim-b".to_string()],
+        [
+            (
+                "sim-a",
+                vec![
+                    HealthCheckResult::failure([FailureReason::AtUnreachable]),
+                    HealthCheckResult::success(),
+                ],
+            ),
+            ("sim-b", vec![HealthCheckResult::success()]),
+        ],
+    ));
+    let recovery = Arc::new(BlockingRecovery::new("sim-a", RecoveryStep::WaitWindow));
+    let supervisor = Arc::new(HealthSupervisor::new(
+        probe,
+        recovery.clone(),
+        1,
+        RecoveryPlan::default(),
+    ));
+
+    let worker = tokio::spawn({
+        let supervisor = supervisor.clone();
+        async move {
+            supervisor.run_probe_cycle().await;
+        }
+    });
+
+    let sim_b_snapshot = timeout(Duration::from_millis(100), async {
+        loop {
+            if let Some(snapshot) = supervisor.snapshot_for("sim-b").await {
+                break snapshot;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("expected sim-b to progress before sim-a recovery wait completes");
+
+    assert_eq!(sim_b_snapshot.current_status, HealthStatus::Healthy);
+
+    recovery.release();
+    worker.await.expect("expected supervisor worker to finish");
+}
+
 #[derive(Default)]
 struct RecordingRecovery {
     events: Mutex<Vec<(String, RecoveryStep)>>,
@@ -192,6 +239,41 @@ impl RecoveryExecutor for RecordingRecovery {
                 return Err(anyhow!("forced recovery failure"));
             }
 
+            Ok(())
+        })
+    }
+}
+
+struct BlockingRecovery {
+    blocked_sim_id: String,
+    blocked_step: RecoveryStep,
+    gate: Notify,
+}
+
+impl BlockingRecovery {
+    fn new(blocked_sim_id: &str, blocked_step: RecoveryStep) -> Self {
+        Self {
+            blocked_sim_id: blocked_sim_id.to_string(),
+            blocked_step,
+            gate: Notify::new(),
+        }
+    }
+
+    fn release(&self) {
+        self.gate.notify_waiters();
+    }
+}
+
+impl RecoveryExecutor for BlockingRecovery {
+    fn execute_step<'a>(
+        &'a self,
+        sim_id: &'a str,
+        step: RecoveryStep,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
+        Box::pin(async move {
+            if sim_id == self.blocked_sim_id && step == self.blocked_step {
+                self.gate.notified().await;
+            }
             Ok(())
         })
     }

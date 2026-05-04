@@ -23,6 +23,7 @@ pub struct ModemManager {
     modems: Arc<RwLock<HashMap<String, Arc<MockModem>>>>,
     sim_cards_cache: Arc<RwLock<HashMap<String, SimCard>>>,
     configured_sms_storage: Arc<RwLock<HashMap<String, SmsStorage>>>,
+    active_sms_storage: Arc<RwLock<HashMap<String, SmsStorage>>>,
 }
 
 impl ModemManager {
@@ -99,6 +100,7 @@ impl ModemManager {
         let manager = Self {
             modems: Arc::new(RwLock::new(modems)),
             sim_cards_cache: Arc::new(RwLock::new(HashMap::new())),
+            active_sms_storage: Arc::new(RwLock::new(configured_sms_storage.clone())),
             configured_sms_storage: Arc::new(RwLock::new(configured_sms_storage)),
         };
 
@@ -322,6 +324,10 @@ impl ModemManager {
         sim_id: &str,
         sms_storage: SmsStorage,
     ) -> anyhow::Result<()> {
+        self.active_sms_storage
+            .write()
+            .await
+            .insert(sim_id.to_string(), sms_storage);
         self.configured_sms_storage
             .write()
             .await
@@ -330,13 +336,18 @@ impl ModemManager {
     }
 
     pub async fn reapply_configured_sms_storage(&self, sim_id: &str) -> anyhow::Result<()> {
-        if self
+        let configured_storage = self
             .configured_sms_storage
             .read()
             .await
-            .contains_key(sim_id)
-        {
-            return Ok(());
+            .get(sim_id)
+            .copied();
+
+        if let Some(storage) = configured_storage {
+            self.active_sms_storage
+                .write()
+                .await
+                .insert(sim_id.to_string(), storage);
         }
 
         Ok(())
@@ -351,8 +362,8 @@ impl ModemManager {
     }
 
     pub async fn get_sms_storage_status(&self, sim_id: &str) -> anyhow::Result<Option<String>> {
-        let configured_sms_storage = self.configured_sms_storage.read().await;
-        let storage = Self::configured_sms_storage_for(&configured_sms_storage, sim_id);
+        let active_sms_storage = self.active_sms_storage.read().await;
+        let storage = Self::configured_sms_storage_for(&active_sms_storage, sim_id);
         Ok(Some(Self::sms_storage_status_response(storage)))
     }
 
@@ -372,8 +383,8 @@ impl ModemManager {
         &self,
         sim_id: &str,
     ) -> anyhow::Result<Option<SmsStorageStatus>> {
-        let configured_sms_storage = self.configured_sms_storage.read().await;
-        let storage = Self::configured_sms_storage_for(&configured_sms_storage, sim_id);
+        let active_sms_storage = self.active_sms_storage.read().await;
+        let storage = Self::configured_sms_storage_for(&active_sms_storage, sim_id);
         Ok(SmsStorageStatus::from_response(
             &Self::sms_storage_status_response(storage),
         ))
@@ -424,11 +435,29 @@ mod tests {
         let manager = ModemManager {
             modems: Arc::new(RwLock::new(HashMap::new())),
             sim_cards_cache: Arc::new(RwLock::new(HashMap::new())),
+            active_sms_storage: Arc::new(RwLock::new(HashMap::from([
+                ("sim-1".to_string(), SmsStorage::SIM),
+                ("sim-2".to_string(), SmsStorage::SIM),
+            ]))),
             configured_sms_storage: Arc::new(RwLock::new(HashMap::from([
                 ("sim-1".to_string(), SmsStorage::ME),
                 ("sim-2".to_string(), SmsStorage::MT),
             ]))),
         };
+
+        let before_sim1 = manager
+            .get_sms_storage_overview("sim-1")
+            .await
+            .expect("expected sim-1 storage overview")
+            .expect("expected sim-1 storage state");
+        let before_sim2 = manager
+            .get_sms_storage_overview("sim-2")
+            .await
+            .expect("expected sim-2 storage overview")
+            .expect("expected sim-2 storage state");
+
+        assert_eq!(before_sim1.read_storage, "SM");
+        assert_eq!(before_sim2.read_storage, "SM");
 
         manager
             .reapply_configured_sms_storage("sim-1")
