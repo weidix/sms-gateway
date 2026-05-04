@@ -2,6 +2,7 @@
 <script>
     import SignalStrengthIndicator from "./SignalStrengthIndicator.svelte";
     import SimCardEnhancedInfo from "./SimCardEnhancedInfo.svelte";
+    import SimCardHealthInfo from "./SimCardHealthInfo.svelte";
     
     let { simInfo = null } = $props();
 </script>
@@ -12,6 +13,8 @@
     </h4>
     
     <SignalStrengthIndicator rssi={simInfo?.signal_quality?.rssi || 99} />
+
+    <SimCardHealthInfo {simInfo} />
     
     <SimCardEnhancedInfo {simInfo} />
 </div>
