@@ -2,6 +2,7 @@ use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 use std::collections::BTreeSet;
 
+use chrono::{DateTime, Utc};
 use log::{error, warn};
 use reqwest::{header::CONTENT_TYPE, Client};
 use serde_json::json;
@@ -9,6 +10,7 @@ use tokio::sync::mpsc;
 
 use crate::config::HealthWebhookConfig;
 use crate::health::state::{FailureReason, HealthSnapshot, HealthStatus};
+use crate::ModemManagerRef;
 
 #[derive(Debug, Clone, Default)]
 pub struct AlertGate {
@@ -57,15 +59,17 @@ pub trait HealthAlertSink: Send + Sync {
 pub struct HealthWebhookAlertManager {
     client: Client,
     configs: Arc<Vec<HealthWebhookConfig>>,
+    modem_manager: ModemManagerRef,
     sender: mpsc::UnboundedSender<HealthAlertEvent>,
 }
 
 impl HealthWebhookAlertManager {
-    pub fn new(configs: Vec<HealthWebhookConfig>) -> Self {
+    pub fn new(configs: Vec<HealthWebhookConfig>, modem_manager: ModemManagerRef) -> Self {
         let (sender, receiver) = mpsc::unbounded_channel();
         let manager = Self {
             client: Client::new(),
             configs: Arc::new(configs),
+            modem_manager,
             sender,
         };
 
@@ -86,7 +90,12 @@ impl HealthWebhookAlertManager {
     }
 
     async fn send_webhook(&self, config: &HealthWebhookConfig, event: &HealthAlertEvent) {
-        let payload = build_payload(&event.sim_id, &event.snapshot);
+        let payload = build_payload(
+            &event.sim_id,
+            &event.com_port,
+            &event.snapshot,
+            event.timestamp,
+        );
         let mut request = self
             .client
             .request(config.method.clone().into(), &config.url)
@@ -128,9 +137,18 @@ impl HealthWebhookAlertManager {
 impl HealthAlertSink for HealthWebhookAlertManager {
     fn emit<'a>(&'a self, sim_id: &'a str, snapshot: &'a HealthSnapshot) -> AlertFuture<'a> {
         Box::pin(async move {
+            let com_port = self
+                .modem_manager
+                .get_modem(sim_id)
+                .await
+                .map(|modem| modem.com_port.clone())
+                .unwrap_or_default();
+
             if let Err(err) = self.sender.send(HealthAlertEvent {
                 sim_id: sim_id.to_string(),
+                com_port,
                 snapshot: snapshot.clone(),
+                timestamp: Utc::now(),
             }) {
                 error!(
                     "Failed to enqueue health webhook alert for sim {}: {}",
@@ -144,13 +162,21 @@ impl HealthAlertSink for HealthWebhookAlertManager {
 #[derive(Debug, Clone)]
 struct HealthAlertEvent {
     sim_id: String,
+    com_port: String,
     snapshot: HealthSnapshot,
+    timestamp: DateTime<Utc>,
 }
 
-fn build_payload(sim_id: &str, snapshot: &HealthSnapshot) -> serde_json::Value {
+fn build_payload(
+    sim_id: &str,
+    com_port: &str,
+    snapshot: &HealthSnapshot,
+    timestamp: DateTime<Utc>,
+) -> serde_json::Value {
     json!({
         "sim_id": sim_id,
-        "current_status": health_status_name(snapshot.current_status),
+        "com_port": com_port,
+        "status": health_status_name(snapshot.current_status),
         "failure_reasons": snapshot
             .failure_reasons
             .iter()
@@ -158,6 +184,7 @@ fn build_payload(sim_id: &str, snapshot: &HealthSnapshot) -> serde_json::Value {
             .map(failure_reason_name)
             .collect::<Vec<_>>(),
         "consecutive_failures": snapshot.consecutive_failures,
+        "timestamp": timestamp.to_rfc3339(),
         "last_probe_at": snapshot.last_probe_at.map(|value| value.to_rfc3339()),
         "last_ok_at": snapshot.last_ok_at.map(|value| value.to_rfc3339()),
         "last_recovery_action": snapshot.last_recovery_action.map(recovery_action_name),
@@ -201,6 +228,8 @@ pub(crate) fn assert_duplicate_status_and_reason_set_does_not_emit_alert() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::{TimeZone, Utc};
+    use serde_json::Value;
 
     pub(crate) fn duplicate_status_and_reason_set_does_not_emit_alert() {
         let first = HealthSnapshot::new().record_failure(3, [FailureReason::AtUnreachable], None);
@@ -234,5 +263,39 @@ mod tests {
         assert!(gate.should_emit(&healthy));
         gate.reset();
         assert!(gate.should_emit(&unhealthy));
+    }
+
+    #[test]
+    fn payload_contains_minimum_contract_fields() {
+        let timestamp = Utc.with_ymd_and_hms(2026, 5, 4, 12, 30, 45).unwrap();
+        let snapshot = HealthSnapshot::new()
+            .record_failure(3, [FailureReason::AtUnreachable], None)
+            .with_status(HealthStatus::Recovering);
+
+        let payload = build_payload("sim-1", "/dev/ttyUSB0", &snapshot, timestamp);
+
+        assert_eq!(
+            payload.get("sim_id"),
+            Some(&Value::String("sim-1".to_string()))
+        );
+        assert_eq!(
+            payload.get("com_port"),
+            Some(&Value::String("/dev/ttyUSB0".to_string()))
+        );
+        assert_eq!(
+            payload.get("status"),
+            Some(&Value::String("recovering".to_string()))
+        );
+        assert_eq!(
+            payload.get("timestamp"),
+            Some(&Value::String(timestamp.to_rfc3339()))
+        );
+        assert_eq!(
+            payload.get("consecutive_failures"),
+            Some(&Value::Number(1_u64.into()))
+        );
+        assert!(payload.get("failure_reasons").is_some());
+        assert!(payload.get("last_recovery_action").is_some());
+        assert!(payload.get("current_status").is_none());
     }
 }

@@ -19,7 +19,7 @@ pub fn start_supervisor(
 ) -> Arc<HealthSupervisor> {
     let probe = Arc::new(ModemHealthProbe::new(modem_manager.clone()));
     let recovery = Arc::new(ModemRecovery::new(
-        modem_manager,
+        modem_manager.clone(),
         Duration::from_secs(settings.health_restart_wait_seconds),
     ));
     let supervisor = Arc::new(match settings.health_webhooks.clone() {
@@ -28,7 +28,10 @@ pub fn start_supervisor(
             recovery,
             settings.health_failure_threshold,
             RecoveryPlan::default(),
-            Arc::new(HealthWebhookAlertManager::new(configs)),
+            Arc::new(HealthWebhookAlertManager::new(
+                configs,
+                modem_manager.clone(),
+            )),
         ),
         _ => HealthSupervisor::new(
             probe,
