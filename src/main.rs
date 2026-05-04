@@ -15,6 +15,7 @@ mod api;
 mod config;
 mod db;
 mod decode;
+mod health;
 mod modem;
 #[cfg(test)]
 mod tests;
@@ -325,4 +326,16 @@ fn rejects_zero_health_restart_wait_seconds() {
 #[test]
 fn rejects_invalid_health_webhook_config() {
     crate::config::assert_rejects_invalid_health_webhook_config();
+}
+
+#[cfg(test)]
+#[test]
+fn state_machine_moves_to_recovering_at_threshold() {
+    crate::health::state::assert_state_machine_moves_to_recovering_at_threshold();
+}
+
+#[cfg(test)]
+#[test]
+fn duplicate_status_and_reason_set_does_not_emit_alert() {
+    crate::health::alert::assert_duplicate_status_and_reason_set_does_not_emit_alert();
 }
