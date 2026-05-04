@@ -441,7 +441,7 @@ Content-Type = "application/json"
 
     Mock::given(method("POST"))
         .and(path("/webhook"))
-        .and(body_json(&json!({
+        .and(body_json(json!({
             "contact": "13800138000",
             "message": "Test message content from received",
             "sim": "SIM-m_id",
@@ -504,7 +504,7 @@ Content-Type = "application/json"
 
     Mock::given(method("POST"))
         .and(path("/webhook"))
-        .and(body_json(&json!({
+        .and(body_json(json!({
             "contact": "13800138000",
             "message": "Test message content from received",
             "sim": "SIM-m_id",
