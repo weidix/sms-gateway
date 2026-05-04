@@ -5,31 +5,44 @@ on:
     tags:
       - '*'
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         rust_target:
           - x86_64-unknown-linux-gnu
           - x86_64-unknown-linux-musl
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v6
         with:
-          version: 8
+          package_json_file: frontend/package.json
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Build the frontend (Svelte with pnpm)
         working-directory: ./frontend
         run: |
-          pnpm install
+          pnpm install --frozen-lockfile
           pnpm build
 
       - name: Install system dependencies for Rust
-        run: sudo apt-get update && sudo apt-get install -y libudev-dev libssl-dev
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libudev-dev libssl-dev
 
       - name: Install Rust toolchain
         uses: ./.github/composite/rust
@@ -40,7 +53,7 @@ jobs:
 
       - name: Install additional native dependencies
         if: matrix.rust_target == 'x86_64-unknown-linux-musl'
-        run: sudo apt-get update && sudo apt-get install -y musl-tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools
 
       - name: Run cargo check
         run: cargo check --target ${{ matrix.rust_target }}
@@ -53,17 +66,22 @@ jobs:
         run: mv target/${{ matrix.rust_target }}/release/sms-gateway target/sms-gateway-${{ matrix.rust_target }}
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sms-gateway-${{ matrix.rust_target }}
           path: target/sms-gateway-${{ matrix.rust_target }}
           if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
 
   release:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           path: ./artifacts
 
