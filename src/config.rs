@@ -213,6 +213,15 @@ fn test_config(app_config: &AppConfig) -> Result<()> {
     if app_config.settings.server_port == 0 {
         anyhow::bail!("Fatal: server_port is not set");
     }
+    if app_config.settings.health_check_frequency == 0 {
+        anyhow::bail!("Fatal: health_check_frequency must be greater than 0");
+    }
+    if app_config.settings.health_failure_threshold == 0 {
+        anyhow::bail!("Fatal: health_failure_threshold must be greater than 0");
+    }
+    if app_config.settings.health_restart_wait_seconds == 0 {
+        anyhow::bail!("Fatal: health_restart_wait_seconds must be greater than 0");
+    }
 
     // Validate DEVICES section
     #[cfg(not(feature = "mock-data"))]
@@ -630,9 +639,45 @@ pub(crate) fn assert_deserializes_health_settings_and_webhooks() {
 }
 
 #[cfg(test)]
+fn parse_and_validate_test_config(raw: &str) -> Result<AppConfig> {
+    let config = Config::builder()
+        .add_source(File::from_str(raw, config::FileFormat::Toml))
+        .build()
+        .expect("test config should build");
+
+    let app_config: AppConfig = config
+        .try_deserialize()
+        .expect("test config should deserialize");
+
+    test_config(&app_config)?;
+
+    Ok(app_config)
+}
+
+#[cfg(test)]
 mod tests {
     #[test]
     fn config_deserializes_health_settings_and_webhooks() {
         super::assert_deserializes_health_settings_and_webhooks();
+    }
+
+    #[test]
+    fn rejects_zero_health_settings() {
+        let raw = r#"
+            [settings]
+            server_host = "127.0.0.1"
+            server_port = 8080
+            read_sms_frequency = 30
+            health_check_frequency = 0
+            health_failure_threshold = 0
+            health_restart_wait_seconds = 0
+
+            [[devices]]
+            com_port = "/dev/ttyUSB0"
+            baud_rate = 115200
+        "#;
+
+        let err = super::parse_and_validate_test_config(raw).unwrap_err();
+        assert!(err.to_string().contains("health_check_frequency"));
     }
 }
