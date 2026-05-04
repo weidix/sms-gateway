@@ -11,7 +11,7 @@ pub enum SmsType {
 }
 
 impl SmsType {
-    pub fn to_at_command_pdu(&self) -> u8 {
+    pub fn to_at_command_pdu(self) -> u8 {
         match self {
             SmsType::RecUnread => 0,
             SmsType::RecRead => 1,
@@ -196,7 +196,16 @@ pub(crate) use tests::{
 
 #[cfg(test)]
 mod tests {
-    use super::{NetworkRegistrationStatus, SmsStorageStatus};
+    use super::{NetworkRegistrationStatus, SmsStorageStatus, SmsType};
+
+    #[test]
+    fn assert_sms_type_to_at_command_pdu_matches_expected_codes() {
+        assert_eq!(SmsType::RecUnread.to_at_command_pdu(), 0);
+        assert_eq!(SmsType::RecRead.to_at_command_pdu(), 1);
+        assert_eq!(SmsType::StoUnsent.to_at_command_pdu(), 2);
+        assert_eq!(SmsType::StoSent.to_at_command_pdu(), 3);
+        assert_eq!(SmsType::All.to_at_command_pdu(), 4);
+    }
 
     pub(crate) fn assert_parses_sms_storage_status_from_cpms() {
         let status = SmsStorageStatus::from_response(

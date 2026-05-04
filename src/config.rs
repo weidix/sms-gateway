@@ -40,9 +40,10 @@ pub struct Device {
 #[derive(Debug, Deserialize, Clone, Copy)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum SmsStorage {
+    #[allow(clippy::upper_case_acronyms)]
     SIM, // Store on SIM card
-    ME,  // Store in module memory
-    MT,  // Use module default
+    ME, // Store in module memory
+    MT, // Use module default
 }
 
 #[derive(Debug, Clone, PartialEq)]
