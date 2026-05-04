@@ -26,6 +26,29 @@ pub struct ModemManager {
 }
 
 impl ModemManager {
+    fn sms_storage_code(storage: SmsStorage) -> &'static str {
+        match storage {
+            SmsStorage::SIM => "SM",
+            SmsStorage::ME => "ME",
+            SmsStorage::MT => "MT",
+        }
+    }
+
+    fn configured_sms_storage_for(
+        configured_sms_storage: &HashMap<String, SmsStorage>,
+        sim_id: &str,
+    ) -> SmsStorage {
+        configured_sms_storage
+            .get(sim_id)
+            .copied()
+            .unwrap_or(SmsStorage::SIM)
+    }
+
+    fn sms_storage_status_response(storage: SmsStorage) -> String {
+        let storage = Self::sms_storage_code(storage);
+        format!("+CPMS: \"{0}\",5,100,\"{0}\",5,100,\"{0}\",5,100", storage)
+    }
+
     pub async fn initialize(config: &AppConfig) -> anyhow::Result<Self> {
         let mut modems = HashMap::new();
         let mut sim_ids = Vec::new();
@@ -306,10 +329,10 @@ impl ModemManager {
         Ok(())
     }
 
-    pub async fn get_sms_storage_status(&self, _sim_id: &str) -> anyhow::Result<Option<String>> {
-        Ok(Some(
-            "+CPMS: \"SM\",5,100,\"SM\",5,100,\"SM\",5,100".to_string(),
-        ))
+    pub async fn get_sms_storage_status(&self, sim_id: &str) -> anyhow::Result<Option<String>> {
+        let configured_sms_storage = self.configured_sms_storage.read().await;
+        let storage = Self::configured_sms_storage_for(&configured_sms_storage, sim_id);
+        Ok(Some(Self::sms_storage_status_response(storage)))
     }
 
     pub async fn probe_at(&self, _sim_id: &str) -> anyhow::Result<()> {
@@ -326,10 +349,12 @@ impl ModemManager {
 
     pub async fn get_sms_storage_overview(
         &self,
-        _sim_id: &str,
+        sim_id: &str,
     ) -> anyhow::Result<Option<SmsStorageStatus>> {
+        let configured_sms_storage = self.configured_sms_storage.read().await;
+        let storage = Self::configured_sms_storage_for(&configured_sms_storage, sim_id);
         Ok(SmsStorageStatus::from_response(
-            "+CPMS: \"SM\",5,100,\"SM\",5,100,\"SM\",5,100",
+            &Self::sms_storage_status_response(storage),
         ))
     }
 
@@ -340,5 +365,36 @@ impl ModemManager {
     pub async fn update_sim_cache(&self, sim_card: SimCard) {
         let mut cache = self.sim_cards_cache.write().await;
         cache.insert(sim_card.id.clone(), sim_card);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn soft_restart_status_response_uses_configured_storage() {
+        let mut configured_sms_storage = HashMap::new();
+        configured_sms_storage.insert("sim-1".to_string(), SmsStorage::ME);
+
+        let storage = ModemManager::configured_sms_storage_for(&configured_sms_storage, "sim-1");
+        let response = ModemManager::sms_storage_status_response(storage);
+
+        assert_eq!(response, "+CPMS: \"ME\",5,100,\"ME\",5,100,\"ME\",5,100");
+    }
+
+    #[test]
+    fn soft_restart_status_response_defaults_to_sim_storage() {
+        let configured_sms_storage = HashMap::new();
+
+        let storage =
+            ModemManager::configured_sms_storage_for(&configured_sms_storage, "missing-sim");
+        let response = ModemManager::sms_storage_status_response(storage);
+        let overview = SmsStorageStatus::from_response(&response).expect("expected mock overview");
+
+        assert_eq!(response, "+CPMS: \"SM\",5,100,\"SM\",5,100,\"SM\",5,100");
+        assert_eq!(overview.read_storage, "SM");
+        assert_eq!(overview.write_storage, "SM");
+        assert_eq!(overview.receive_storage, "SM");
     }
 }

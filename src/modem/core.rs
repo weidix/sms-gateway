@@ -425,9 +425,7 @@ impl Modem {
     }
 
     pub async fn soft_restart(&self) -> io::Result<()> {
-        self.send_command_with_ok("AT+CFUN=1,1\r\n")
-            .await
-            .map(|_| ())
+        Self::validate_soft_restart_result(self.send_command("AT+CFUN=1,1\r\n").await)
     }
 
     async fn send_command_priority(&self, command: &str, priority: u8) -> io::Result<String> {
@@ -451,6 +449,41 @@ impl Modem {
 
     async fn send_command(&self, command: &str) -> io::Result<String> {
         self.send_command_priority(command, 5).await
+    }
+
+    fn validate_soft_restart_result(result: io::Result<String>) -> io::Result<()> {
+        match result {
+            Ok(response) => {
+                if Self::response_has_error(&response) {
+                    error!("Soft restart failed: {}", response);
+                    Err(io::Error::other(format!(
+                        "Command failed: {}",
+                        Self::format_log(&response)
+                    )))
+                } else {
+                    Ok(())
+                }
+            }
+            Err(err) if Self::is_expected_restart_disconnect(&err) => Ok(()),
+            Err(err) => Err(err),
+        }
+    }
+
+    fn response_has_error(response: &str) -> bool {
+        response.contains("\r\nERROR\r\n")
+            || response.contains("+CME ERROR")
+            || response.contains("+CMS ERROR")
+    }
+
+    fn is_expected_restart_disconnect(err: &io::Error) -> bool {
+        matches!(
+            err.kind(),
+            io::ErrorKind::BrokenPipe
+                | io::ErrorKind::NotConnected
+                | io::ErrorKind::ConnectionAborted
+                | io::ErrorKind::ConnectionReset
+                | io::ErrorKind::UnexpectedEof
+        )
     }
 
     async fn send_command_with_ok(&self, command: &str) -> io::Result<String> {
@@ -823,5 +856,26 @@ impl Modem {
     pub async fn get_sms_storage_overview(&self) -> io::Result<Option<SmsStorageStatus>> {
         self.get_modem_info("AT+CPMS?\r\n", SmsStorageStatus::from_response)
             .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Modem;
+    use std::io;
+
+    #[test]
+    fn soft_restart_accepts_expected_disconnect_errors() {
+        let result =
+            Modem::validate_soft_restart_result(Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn soft_restart_rejects_modem_error_responses() {
+        let result = Modem::validate_soft_restart_result(Ok("\r\n+CME ERROR: 3\r\n".to_string()));
+
+        assert!(result.is_err());
     }
 }
