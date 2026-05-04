@@ -7,6 +7,7 @@ use anyhow::{anyhow, Result};
 use tokio::sync::{Mutex, Notify};
 use tokio::time::{timeout, Duration};
 
+use crate::health::alert::HealthAlertSink;
 use crate::health::probe::{HealthCheckResult, HealthProbe};
 use crate::health::recovery::{RecoveryExecutor, RecoveryPlan, RecoveryStep};
 use crate::health::state::{FailureReason, HealthSnapshot, HealthStatus, RecoveryAction};
@@ -207,6 +208,69 @@ pub(crate) async fn assert_other_sims_progress_while_one_sim_waits_in_recovery()
     worker.await.expect("expected supervisor worker to finish");
 }
 
+pub(crate) async fn assert_real_supervisor_path_uses_alert_gate() {
+    let probe = Arc::new(SequenceProbe::new(
+        vec!["sim-1".to_string()],
+        [(
+            "sim-1",
+            vec![
+                ProbeResponse::result(HealthCheckResult::failure([FailureReason::AtUnreachable])),
+                ProbeResponse::result(HealthCheckResult::failure([FailureReason::AtUnreachable])),
+                ProbeResponse::result(HealthCheckResult::success()),
+            ],
+        )],
+    ));
+    let recovery = Arc::new(RecordingRecovery::default());
+    let alerts = Arc::new(RecordingAlertSink::default());
+    let supervisor = HealthSupervisor::with_alert_sink(
+        probe,
+        recovery,
+        3,
+        RecoveryPlan::default(),
+        alerts.clone(),
+    );
+
+    supervisor.run_probe_cycle().await;
+    supervisor.run_probe_cycle().await;
+    supervisor.run_probe_cycle().await;
+
+    let emitted = alerts.emitted().await;
+    assert_eq!(emitted.len(), 2);
+    assert_eq!(emitted[0].0, "sim-1");
+    assert_eq!(emitted[0].1.current_status, HealthStatus::Degraded);
+    assert_eq!(emitted[1].0, "sim-1");
+    assert_eq!(emitted[1].1.current_status, HealthStatus::Healthy);
+}
+
+pub(crate) async fn assert_repeated_probe_errors_trigger_recovery_at_threshold() {
+    let probe = Arc::new(SequenceProbe::new(
+        vec!["sim-1".to_string()],
+        [(
+            "sim-1",
+            vec![
+                ProbeResponse::error("probe transport failure"),
+                ProbeResponse::error("probe transport failure"),
+                ProbeResponse::result(HealthCheckResult::success()),
+            ],
+        )],
+    ));
+    let recovery = Arc::new(RecordingRecovery::default());
+    let supervisor = HealthSupervisor::new(probe, recovery.clone(), 2, RecoveryPlan::default());
+
+    supervisor.run_probe_cycle().await;
+    supervisor.run_probe_cycle().await;
+
+    let snapshot = supervisor
+        .snapshot_for("sim-1")
+        .await
+        .expect("expected sim snapshot");
+    let recovery_events = recovery.events().await;
+
+    assert!(!recovery_events.is_empty());
+    assert_eq!(snapshot.current_status, HealthStatus::Healthy);
+    assert_eq!(snapshot.consecutive_failures, 0);
+}
+
 #[derive(Default)]
 struct RecordingRecovery {
     events: Mutex<Vec<(String, RecoveryStep)>>,
@@ -279,23 +343,48 @@ impl RecoveryExecutor for BlockingRecovery {
     }
 }
 
+#[derive(Clone)]
+enum ProbeResponse {
+    Result(HealthCheckResult),
+    Error(String),
+}
+
+impl ProbeResponse {
+    fn result(result: HealthCheckResult) -> Self {
+        Self::Result(result)
+    }
+
+    fn error(message: &str) -> Self {
+        Self::Error(message.to_string())
+    }
+}
+
+impl From<HealthCheckResult> for ProbeResponse {
+    fn from(result: HealthCheckResult) -> Self {
+        Self::Result(result)
+    }
+}
+
 struct SequenceProbe {
     sim_ids: Vec<String>,
-    responses: Mutex<BTreeMap<String, VecDeque<HealthCheckResult>>>,
+    responses: Mutex<BTreeMap<String, VecDeque<ProbeResponse>>>,
 }
 
 impl SequenceProbe {
-    fn new<const N: usize>(
-        sim_ids: Vec<String>,
-        responses: [(&str, Vec<HealthCheckResult>); N],
-    ) -> Self {
+    fn new<const N: usize, T>(sim_ids: Vec<String>, responses: [(&str, Vec<T>); N]) -> Self
+    where
+        T: Into<ProbeResponse>,
+    {
         Self {
             sim_ids,
-            responses: Mutex::new(BTreeMap::from_iter(
-                responses
-                    .into_iter()
-                    .map(|(sim_id, results)| (sim_id.to_string(), VecDeque::from(results))),
-            )),
+            responses: Mutex::new(BTreeMap::from_iter(responses.into_iter().map(
+                |(sim_id, results)| {
+                    (
+                        sim_id.to_string(),
+                        VecDeque::from(results.into_iter().map(Into::into).collect::<Vec<_>>()),
+                    )
+                },
+            ))),
         }
     }
 }
@@ -315,9 +404,39 @@ impl HealthProbe for SequenceProbe {
                 .get_mut(sim_id)
                 .unwrap_or_else(|| panic!("missing probe sequence for {}", sim_id));
 
-            Ok(results
+            match results
                 .pop_front()
-                .unwrap_or_else(HealthCheckResult::success))
+                .unwrap_or_else(|| ProbeResponse::result(HealthCheckResult::success()))
+            {
+                ProbeResponse::Result(result) => Ok(result),
+                ProbeResponse::Error(message) => Err(anyhow!(message)),
+            }
+        })
+    }
+}
+
+#[derive(Default)]
+struct RecordingAlertSink {
+    emitted: Mutex<Vec<(String, HealthSnapshot)>>,
+}
+
+impl RecordingAlertSink {
+    async fn emitted(&self) -> Vec<(String, HealthSnapshot)> {
+        self.emitted.lock().await.clone()
+    }
+}
+
+impl HealthAlertSink for RecordingAlertSink {
+    fn emit<'a>(
+        &'a self,
+        sim_id: &'a str,
+        snapshot: &'a HealthSnapshot,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> {
+        Box::pin(async move {
+            self.emitted
+                .lock()
+                .await
+                .push((sim_id.to_string(), snapshot.clone()));
         })
     }
 }

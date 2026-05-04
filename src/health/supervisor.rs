@@ -1,4 +1,8 @@
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+    time::Duration,
+};
 
 use futures::stream::{FuturesUnordered, StreamExt};
 use log::{error, warn};
@@ -7,6 +11,7 @@ use tokio::{sync::RwLock, task::JoinHandle, time::sleep};
 use crate::health::state::{FailureReason, HealthSnapshot, HealthStatus};
 
 use super::{
+    alert::{AlertGate, HealthAlertSink},
     probe::HealthProbe,
     recovery::{RecoveryExecutor, RecoveryPlan, RecoveryStep},
 };
@@ -14,8 +19,10 @@ use super::{
 pub struct HealthSupervisor {
     probe: Arc<dyn HealthProbe>,
     recovery: Arc<dyn RecoveryExecutor>,
+    alert_sink: Option<Arc<dyn HealthAlertSink>>,
     failure_threshold: u64,
     recovery_plan: RecoveryPlan,
+    alert_gates: Arc<RwLock<BTreeMap<String, AlertGate>>>,
     snapshots: Arc<RwLock<BTreeMap<String, HealthSnapshot>>>,
 }
 
@@ -26,11 +33,39 @@ impl HealthSupervisor {
         failure_threshold: u64,
         recovery_plan: RecoveryPlan,
     ) -> Self {
-        Self {
+        Self::with_optional_alert_sink(probe, recovery, failure_threshold, recovery_plan, None)
+    }
+
+    pub fn with_alert_sink(
+        probe: Arc<dyn HealthProbe>,
+        recovery: Arc<dyn RecoveryExecutor>,
+        failure_threshold: u64,
+        recovery_plan: RecoveryPlan,
+        alert_sink: Arc<dyn HealthAlertSink>,
+    ) -> Self {
+        Self::with_optional_alert_sink(
             probe,
             recovery,
             failure_threshold,
             recovery_plan,
+            Some(alert_sink),
+        )
+    }
+
+    fn with_optional_alert_sink(
+        probe: Arc<dyn HealthProbe>,
+        recovery: Arc<dyn RecoveryExecutor>,
+        failure_threshold: u64,
+        recovery_plan: RecoveryPlan,
+        alert_sink: Option<Arc<dyn HealthAlertSink>>,
+    ) -> Self {
+        Self {
+            probe,
+            recovery,
+            alert_sink,
+            failure_threshold,
+            recovery_plan,
+            alert_gates: Arc::new(RwLock::new(BTreeMap::new())),
             snapshots: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
@@ -64,7 +99,7 @@ impl HealthSupervisor {
         }
 
         while let Some((sim_id, next)) = tasks.next().await {
-            self.replace_snapshot(&sim_id, next).await;
+            self.replace_snapshot_and_emit(&sim_id, next).await;
         }
 
         self.snapshots.read().await.clone()
@@ -78,21 +113,17 @@ impl HealthSupervisor {
         match self.probe.run_checks(sim_id).await {
             Ok(result) if result.is_healthy() => current.record_success(),
             Ok(result) => {
-                let failed = current.record_failure(
-                    self.failure_threshold,
-                    result.failed_reasons().iter().copied(),
-                    None,
-                );
-
-                if matches!(failed.current_status, HealthStatus::Recovering) {
-                    self.recover_sim(sim_id, failed).await
-                } else {
-                    failed
-                }
+                self.process_failed_snapshot(sim_id, current, result.failed_reasons().clone())
+                    .await
             }
             Err(err) => {
                 warn!("Health probe execution failed for {}: {}", sim_id, err);
-                current.record_failure(self.failure_threshold, [FailureReason::AtUnreachable], None)
+                self.process_failed_snapshot(
+                    sim_id,
+                    current,
+                    BTreeSet::from([FailureReason::AtUnreachable]),
+                )
+                .await
             }
         }
     }
@@ -103,7 +134,8 @@ impl HealthSupervisor {
         for step in self.recovery_plan.steps() {
             if let Some(action) = step.recovery_action() {
                 recovering = recovering.record_recovery_action(action);
-                self.replace_snapshot(sim_id, recovering.clone()).await;
+                self.replace_snapshot_and_emit(sim_id, recovering.clone())
+                    .await;
             }
 
             if let Err(err) = self.recovery.execute_step(sim_id, *step).await {
@@ -131,6 +163,43 @@ impl HealthSupervisor {
         }
     }
 
+    async fn process_failed_snapshot(
+        &self,
+        sim_id: &str,
+        current: HealthSnapshot,
+        failure_reasons: BTreeSet<FailureReason>,
+    ) -> HealthSnapshot {
+        let failed = current.record_failure(
+            self.failure_threshold,
+            failure_reasons.iter().copied(),
+            None,
+        );
+
+        if matches!(failed.current_status, HealthStatus::Recovering) {
+            self.recover_sim(sim_id, failed).await
+        } else {
+            failed
+        }
+    }
+
+    async fn replace_snapshot_and_emit(&self, sim_id: &str, snapshot: HealthSnapshot) {
+        self.replace_snapshot(sim_id, snapshot.clone()).await;
+
+        if let Some(alert_sink) = &self.alert_sink {
+            if self.should_emit_alert(sim_id, &snapshot).await {
+                alert_sink.emit(sim_id, &snapshot).await;
+            }
+        }
+    }
+
+    async fn should_emit_alert(&self, sim_id: &str, snapshot: &HealthSnapshot) -> bool {
+        let mut gates = self.alert_gates.write().await;
+        let gate = gates.entry(sim_id.to_string()).or_default();
+        gate.should_emit(snapshot)
+    }
+}
+
+impl HealthSupervisor {
     pub fn spawn_worker(self: Arc<Self>, interval: Duration) -> JoinHandle<()> {
         tokio::spawn(async move {
             loop {

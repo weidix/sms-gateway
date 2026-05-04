@@ -400,6 +400,18 @@ async fn other_sims_progress_while_one_sim_waits_in_recovery() {
 
 #[cfg(test)]
 #[tokio::test]
+async fn real_supervisor_path_uses_alert_gate() {
+    crate::tests::health_tests::assert_real_supervisor_path_uses_alert_gate().await;
+}
+
+#[cfg(test)]
+#[tokio::test]
+async fn repeated_probe_errors_trigger_recovery_at_threshold() {
+    crate::tests::health_tests::assert_repeated_probe_errors_trigger_recovery_at_threshold().await;
+}
+
+#[cfg(test)]
+#[tokio::test]
 async fn health_snapshot_merges_into_sim_info_response() {
     crate::api::assert_health_snapshot_merges_into_sim_info_response().await;
 }

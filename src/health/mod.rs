@@ -8,6 +8,7 @@ use std::{sync::Arc, time::Duration};
 
 use crate::{config::Settings, ModemManagerRef};
 
+use alert::HealthWebhookAlertManager;
 use probe::ModemHealthProbe;
 use recovery::{ModemRecovery, RecoveryPlan};
 use supervisor::HealthSupervisor;
@@ -21,12 +22,21 @@ pub fn start_supervisor(
         modem_manager,
         Duration::from_secs(settings.health_restart_wait_seconds),
     ));
-    let supervisor = Arc::new(HealthSupervisor::new(
-        probe,
-        recovery,
-        settings.health_failure_threshold,
-        RecoveryPlan::default(),
-    ));
+    let supervisor = Arc::new(match settings.health_webhooks.clone() {
+        Some(configs) if !configs.is_empty() => HealthSupervisor::with_alert_sink(
+            probe,
+            recovery,
+            settings.health_failure_threshold,
+            RecoveryPlan::default(),
+            Arc::new(HealthWebhookAlertManager::new(configs)),
+        ),
+        _ => HealthSupervisor::new(
+            probe,
+            recovery,
+            settings.health_failure_threshold,
+            RecoveryPlan::default(),
+        ),
+    });
 
     supervisor
         .clone()
