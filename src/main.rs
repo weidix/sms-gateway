@@ -74,9 +74,15 @@ async fn run() -> anyhow::Result<()> {
         sse_manager.clone(),
         webhook_manager,
     ));
-    let _health_supervisor = health::start_supervisor(modem_manager.clone(), &config.settings);
+    let health_supervisor = health::start_supervisor(modem_manager.clone(), &config.settings);
 
-    run_api_for_settings(modem_manager, &config.settings, sse_manager).await
+    run_api_for_settings(
+        modem_manager,
+        health_supervisor,
+        &config.settings,
+        sse_manager,
+    )
+    .await
 }
 
 async fn read_sms_worker(
@@ -211,6 +217,7 @@ where
 
 async fn run_api_for_settings(
     modem_manager: ModemManagerRef,
+    health_supervisor: Arc<health::supervisor::HealthSupervisor>,
     settings: &Settings,
     sse_manager: Arc<SseManager>,
 ) -> anyhow::Result<()> {
@@ -220,6 +227,7 @@ async fn run_api_for_settings(
         move |host, port, auth, sse_manager| async move {
             api::run_api(
                 modem_manager,
+                health_supervisor,
                 &host,
                 &port,
                 auth.as_ref()
@@ -388,4 +396,10 @@ fn d_probe_uses_configured_receive_storage_semantics() {
 #[tokio::test]
 async fn other_sims_progress_while_one_sim_waits_in_recovery() {
     crate::tests::health_tests::assert_other_sims_progress_while_one_sim_waits_in_recovery().await;
+}
+
+#[cfg(test)]
+#[tokio::test]
+async fn health_snapshot_merges_into_sim_info_response() {
+    crate::api::assert_health_snapshot_merges_into_sim_info_response().await;
 }

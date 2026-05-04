@@ -13,12 +13,16 @@ use log::error;
 use mime_guess::from_path;
 use reqwest::{header, StatusCode};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 pub use sse_manager::SseManager;
 
 use crate::{
     config::SmsStorage,
     db::{Contact, Conversation, SimCard, Sms},
+    health::{
+        state::{FailureReason, HealthSnapshot, HealthStatus, RecoveryAction},
+        supervisor::HealthSupervisor,
+    },
     modem::{ModemInfo as ModemModel, OperatorInfo, SignalQuality, SmsType},
     ModemManagerRef,
 };
@@ -89,13 +93,96 @@ use rust_embed::RustEmbed;
 #[folder = "frontend/dist"]
 struct Asset;
 
+#[derive(Clone)]
+struct SimApiState {
+    modem_manager: ModemManagerRef,
+    health_supervisor: Arc<HealthSupervisor>,
+}
+
+fn merge_health_snapshot(mut response: Value, snapshot: Option<&HealthSnapshot>) -> Value {
+    if let Value::Object(ref mut object) = response {
+        let health_status = snapshot.map(|item| serialize_health_status(item.current_status));
+        let failure_reasons = snapshot
+            .map(|item| {
+                item.failure_reasons
+                    .iter()
+                    .copied()
+                    .map(serialize_failure_reason)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let consecutive_failures = snapshot.map_or(0, |item| item.consecutive_failures);
+        let last_probe_at = snapshot
+            .and_then(|item| item.last_probe_at)
+            .map(|item| item.to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
+        let last_ok_at = snapshot
+            .and_then(|item| item.last_ok_at)
+            .map(|item| item.to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
+        let last_recovery_action = snapshot
+            .and_then(|item| item.last_recovery_action)
+            .map(serialize_recovery_action);
+        let last_recovery_at = snapshot
+            .and_then(|item| item.last_recovery_at)
+            .map(|item| item.to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
+
+        object.insert("health_status".to_string(), json!(health_status));
+        object.insert("failure_reasons".to_string(), json!(failure_reasons));
+        object.insert(
+            "consecutive_failures".to_string(),
+            json!(consecutive_failures),
+        );
+        object.insert("last_probe_at".to_string(), json!(last_probe_at));
+        object.insert("last_ok_at".to_string(), json!(last_ok_at));
+        object.insert(
+            "last_recovery_action".to_string(),
+            json!(last_recovery_action),
+        );
+        object.insert("last_recovery_at".to_string(), json!(last_recovery_at));
+    }
+
+    response
+}
+
+fn serialize_health_status(status: HealthStatus) -> &'static str {
+    match status {
+        HealthStatus::Healthy => "healthy",
+        HealthStatus::Degraded => "degraded",
+        HealthStatus::Recovering => "recovering",
+        HealthStatus::Critical => "critical",
+    }
+}
+
+fn serialize_failure_reason(reason: FailureReason) -> &'static str {
+    match reason {
+        FailureReason::AtUnreachable => "at_unreachable",
+        FailureReason::SimNotReady => "sim_not_ready",
+        FailureReason::NetworkNotRegistered => "network_not_registered",
+        FailureReason::SmsStorageUnavailable => "sms_storage_unavailable",
+        FailureReason::SmsStorageFull => "sms_storage_full",
+        FailureReason::ReadSmsFailed => "read_sms_failed",
+    }
+}
+
+fn serialize_recovery_action(action: RecoveryAction) -> &'static str {
+    match action {
+        RecoveryAction::ReinitializeModem => "reinitialize_modem",
+        RecoveryAction::ReapplySmsStorage => "reapply_sms_storage",
+        RecoveryAction::RestartModem => "restart_modem",
+    }
+}
+
 pub async fn run_api(
     modem_manager: ModemManagerRef,
+    health_supervisor: Arc<HealthSupervisor>,
     server_host: &str,
     server_port: &u16,
     auth: Option<(&str, &str)>,
     sse_manager: Arc<SseManager>,
 ) -> anyhow::Result<()> {
+    let sim_api_state = SimApiState {
+        modem_manager: modem_manager.clone(),
+        health_supervisor,
+    };
     let mut api = Router::new()
         .route("/check", get(check))
         .route("/sms", get(get_sms_paginated))
@@ -104,7 +191,7 @@ pub async fn run_api(
         // 破坏性改造: 删除所有/api/device路径，改为/api/sims
         .route(
             "/sims/info",
-            get(get_all_sim_info).with_state(modem_manager.clone()),
+            get(get_all_sim_info).with_state(sim_api_state.clone()),
         )
         .route(
             "/sims/{sim_id}/refresh",
@@ -118,7 +205,7 @@ pub async fn run_api(
         .route("/sim-cards", get(get_all_sim_cards)) // 保留用于管理
         .route(
             "/sims/{sim_id}/info",
-            get(get_enhanced_sim_info).with_state(modem_manager.clone()),
+            get(get_enhanced_sim_info).with_state(sim_api_state),
         )
         .route(
             "/sim-cards/{sim_id}/alias",
@@ -229,9 +316,12 @@ async fn send_sms(
     }
 }
 
-async fn get_all_sim_info(State(modem_manager): State<ModemManagerRef>) -> Response {
+async fn get_all_sim_info(State(state): State<SimApiState>) -> Response {
     use futures::future::join_all;
     use tokio::time::{timeout, Duration};
+
+    let modem_manager = state.modem_manager;
+    let health_supervisor = state.health_supervisor;
 
     fn to_data_error<T, E: ToString>(result: Result<T, E>) -> (Option<T>, Option<String>) {
         match result {
@@ -392,7 +482,8 @@ async fn get_all_sim_info(State(modem_manager): State<ModemManagerRef>) -> Respo
             _ => ("N/A".to_string(), 0),
         };
 
-        details.push(json!({
+        let snapshot = health_supervisor.snapshot_for(&sim_id).await;
+        details.push(merge_health_snapshot(json!({
             "sim_id": sim_id,
             "name": sim_id.clone(),
             "com_port": com_port,
@@ -403,7 +494,7 @@ async fn get_all_sim_info(State(modem_manager): State<ModemManagerRef>) -> Respo
             "sms_center": sms_center_data.as_ref().and_then(|s| s.as_ref()).map(|s| decode_sms_center(s)),
             "sim_status": sim_status_data,
             "memory_status": memory_status_data.as_ref().and_then(|s| s.as_ref()).map(|s| format_memory_status(s))
-        }));
+        }), snapshot.as_ref()));
     }
 
     (StatusCode::OK, Json(details)).into_response()
@@ -555,8 +646,11 @@ async fn get_all_sim_cards() -> Response {
 
 async fn get_enhanced_sim_info(
     Path(sim_id): Path<String>,
-    State(modem_manager): State<ModemManagerRef>,
+    State(state): State<SimApiState>,
 ) -> Response {
+    let modem_manager = state.modem_manager;
+    let health_supervisor = state.health_supervisor;
+
     match modem_manager.get_modem(&sim_id).await {
         Some(modem) => {
             let sms_center_raw = modem_manager.get_sms_center(&sim_id).await.ok().flatten();
@@ -582,10 +676,26 @@ async fn get_enhanced_sim_info(
                 memory_status: memory_status_raw.as_ref().map(|s| format_memory_status(s)),
             };
 
-            (StatusCode::OK, Json(enhanced_info)).into_response()
+            let snapshot = health_supervisor.snapshot_for(&sim_id).await;
+            let response = serde_json::to_value(enhanced_info)
+                .map(|value| merge_health_snapshot(value, snapshot.as_ref()));
+
+            match response {
+                Ok(response) => (StatusCode::OK, Json(response)).into_response(),
+                Err(err) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to serialize SIM info: {}", err),
+                )
+                    .into_response(),
+            }
         }
         _ => (StatusCode::NOT_FOUND, "SIM not found").into_response(),
     }
+}
+
+#[cfg(test)]
+pub(crate) async fn assert_health_snapshot_merges_into_sim_info_response() {
+    api_handler_tests::assert_health_snapshot_merges_into_sim_info_response().await;
 }
 
 #[derive(serde::Deserialize)]
@@ -754,6 +864,9 @@ where
 mod api_handler_tests {
     use super::*;
     use axum::body::to_bytes;
+    use chrono::TimeZone;
+    use serde_json::Value;
+    use std::collections::BTreeSet;
 
     #[tokio::test]
     async fn send_sms_returns_internal_server_error_when_new_contact_creation_fails() {
@@ -778,5 +891,42 @@ mod api_handler_tests {
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let body = String::from_utf8(body.to_vec()).unwrap();
         assert!(body.contains("Failed to get contacts"));
+    }
+
+    pub(crate) async fn assert_health_snapshot_merges_into_sim_info_response() {
+        let last_probe_at = chrono::Utc.with_ymd_and_hms(2026, 5, 4, 9, 30, 0).unwrap();
+        let last_ok_at = chrono::Utc.with_ymd_and_hms(2026, 5, 4, 9, 25, 0).unwrap();
+        let last_recovery_at = chrono::Utc.with_ymd_and_hms(2026, 5, 4, 9, 20, 0).unwrap();
+        let snapshot = crate::health::state::HealthSnapshot {
+            current_status: crate::health::state::HealthStatus::Recovering,
+            failure_reasons: BTreeSet::from([
+                crate::health::state::FailureReason::AtUnreachable,
+                crate::health::state::FailureReason::SmsStorageFull,
+            ]),
+            consecutive_failures: 3,
+            last_probe_at: Some(last_probe_at),
+            last_ok_at: Some(last_ok_at),
+            last_recovery_action: Some(crate::health::state::RecoveryAction::RestartModem),
+            last_recovery_at: Some(last_recovery_at),
+        };
+
+        let response = json!({
+            "sim_id": "sim-1",
+            "name": "sim-1",
+        });
+
+        let merged = merge_health_snapshot(response, Some(&snapshot));
+        let merged: Value = serde_json::from_value(merged).unwrap();
+
+        assert_eq!(merged["health_status"], "recovering");
+        assert_eq!(
+            merged["failure_reasons"],
+            json!(["at_unreachable", "sms_storage_full"])
+        );
+        assert_eq!(merged["consecutive_failures"], 3);
+        assert_eq!(merged["last_probe_at"], "2026-05-04T09:30:00Z");
+        assert_eq!(merged["last_ok_at"], "2026-05-04T09:25:00Z");
+        assert_eq!(merged["last_recovery_action"], "restart_modem");
+        assert_eq!(merged["last_recovery_at"], "2026-05-04T09:20:00Z");
     }
 }
