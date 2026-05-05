@@ -1,7 +1,6 @@
 <!-- frontend/src/lib/components/simcard/SimCardTabs.svelte -->
 <script>
     import Icon from "@iconify/svelte";
-    import { slide } from "svelte/transition";
     
     let {
         simCards = [],
@@ -12,26 +11,23 @@
 </script>
 
 {#if simCards.length > 0}
-    <div class="flex border-b border-gray-200 dark:border-zinc-700 overflow-x-auto bg-gray-50 dark:bg-zinc-800/50 pl-0 pr-2 sm:pr-4">
+    <div class="shell-scrollbar flex gap-2 overflow-x-auto border-b px-4 py-2.5 sm:px-6"
+        style="border-color: var(--line-soft); background: var(--panel-soft);"
+    >
         {#each simCards as simCard (simCard.id)}
             <button
-                class="px-4 sm:px-6 py-3 sm:py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-all duration-200 relative
-                       {activeSimId === simCard.id 
-                         ? 'border-gray-800 dark:border-gray-200 text-gray-800 dark:text-gray-100 bg-white dark:bg-zinc-900' 
-                         : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800'}"
+                class={`relative min-w-0 shrink-0 overflow-hidden rounded-full border px-4 py-2 text-sm font-medium transition-all duration-200 ${
+                    activeSimId === simCard.id
+                        ? 'bg-[var(--panel-strong)] border-[color:var(--line-strong)] text-[var(--text-strong)] shadow-[var(--shadow-soft)]'
+                        : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
                 onclick={() => onTabSwitch(simCard.id)}
+                title={getDisplayName(simCard)}
             >
-                <span class="flex items-center gap-2">
-                    <Icon icon="carbon:sim-card" class="w-4 h-4" />
-                    <span class="truncate max-w-[160px] sm:max-w-none">{getDisplayName(simCard)}</span>
+                <span class="flex min-w-0 items-center gap-1.5">
+                    <Icon icon="carbon:sim-card" class="h-3.5 w-3.5 shrink-0" />
+                    <span class="min-w-0 truncate">{getDisplayName(simCard)}</span>
                 </span>
-                
-                {#if activeSimId === simCard.id}
-                    <div 
-                        class="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-800 dark:bg-gray-200"
-                        transition:slide={{ duration: 200, axis: 'x' }}
-                    ></div>
-                {/if}
             </button>
         {/each}
     </div>
