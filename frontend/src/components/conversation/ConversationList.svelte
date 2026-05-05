@@ -94,76 +94,79 @@
   }
 </script>
 
-<div class="flex flex-col h-full">
-  <!-- Header with Search and New Message -->
-  <div class="flex flex-col gap-3 mb-4">
-    <div class="flex items-center justify-between">
-      <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200">Messages</h2>
+<div class="flex h-full min-h-0 flex-col">
+  <div class="mb-3 flex flex-col gap-2.5">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <p class="shell-label">Thread Index</p>
+        <h2 class="shell-heading text-xl font-semibold">Messages</h2>
+      </div>
       <button
-        class="p-2 rounded-lg bg-gray-800 dark:bg-gray-200 text-gray-100 dark:text-gray-900
-               hover:bg-gray-700 dark:hover:bg-gray-300 transition-all duration-200 active:scale-[0.95]"
+        class="shell-button shell-button-primary h-10 w-10 px-0"
         onclick={createNewMessage}
         title="New Message"
       >
-        <Icon icon="carbon:add" class="w-4 h-4" />
+        <Icon icon="carbon:add" class="h-4 w-4" />
       </button>
     </div>
 
-    <!-- Search Input -->
     <div class="relative">
-      <div
-        class="flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all duration-200
-               bg-white dark:bg-zinc-900
-               {searchTemporaryIsActive 
-                 ? 'border-gray-400 dark:border-zinc-500' 
-                 : 'border-gray-300 dark:border-zinc-600 hover:border-gray-400 dark:hover:border-zinc-500'}"
-      >
-        <Icon 
-          icon="carbon:search" 
-          class="w-4 h-4 text-gray-500 dark:text-gray-400" 
-        />
-        <input
-          type="text"
-          onfocus={searchHandleFocus}
-          onblur={searchHandleBlur}
-          bind:value={searchTemporaryValue}
-          class="flex-1 bg-transparent border-0 outline-none text-sm text-gray-700 dark:text-gray-200
-                 placeholder-gray-400 dark:placeholder-gray-500"
-          placeholder="Search conversations..."
-        />
-        {#if searchTemporaryValue}
-          <button
-            onclick={() => searchTemporaryValue = ""}
-            class="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
-          >
-            <Icon icon="carbon:close" class="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
-          </button>
-        {/if}
-      </div>
+      <Icon
+        icon="carbon:search"
+        class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2"
+        style="color: var(--text-muted);"
+      />
+      <input
+        type="text"
+        onfocus={searchHandleFocus}
+        onblur={searchHandleBlur}
+        bind:value={searchTemporaryValue}
+        class={`shell-input h-10 pl-10 pr-10 ${searchTemporaryIsActive ? 'border-[color:var(--line-strong)]' : ''}`}
+        placeholder="Search conversations..."
+      />
+      {#if searchTemporaryValue}
+        <button
+          onclick={() => searchTemporaryValue = ""}
+          class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full transition-colors duration-200 hover:bg-black/5 dark:hover:bg-white/5"
+          aria-label="Clear search"
+        >
+          <Icon icon="carbon:close" class="h-4 w-4" style="color: var(--text-muted);" />
+        </button>
+      {/if}
+    </div>
+
+    <div class="flex items-center justify-between text-xs">
+      <span style="color: var(--text-muted);">
+        {filteredConversations.length} visible conversation{filteredConversations.length === 1 ? '' : 's'}
+      </span>
+      <span class="shell-chip shell-chip-muted">
+        Active relay
+      </span>
     </div>
   </div>
 
-  <!-- Conversations List -->
-  <div class="flex-1 overflow-hidden">
-    <div class="h-full overflow-y-auto scrollbar-thin">
-      <div class="space-y-1">
+  <div class="min-h-0 flex-1 overflow-hidden">
+    <div class="shell-scrollbar h-full overflow-y-auto pr-1">
+      <div class="space-y-1.5 pb-2">
         {#if $conversationLoading}
-          <!-- Loading skeleton -->
           {#each Array(5) as _}
-            <div class="flex items-center gap-2 p-2 rounded-lg animate-pulse">
-              <div class="w-8 h-8 bg-gray-200 dark:bg-zinc-700 rounded-lg"></div>
-              <div class="flex-1 space-y-1.5">
-                <div class="h-3 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
-                <div class="h-2.5 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
+            <div class="shell-card-muted animate-pulse p-2.5">
+              <div class="flex items-center gap-2.5">
+                <div class="h-10 w-10 rounded-[18px] bg-black/10 dark:bg-white/10"></div>
+                <div class="flex-1 space-y-2">
+                  <div class="h-3 w-32 rounded-full bg-black/10 dark:bg-white/10"></div>
+                  <div class="h-3 w-24 rounded-full bg-black/10 dark:bg-white/10"></div>
+                </div>
               </div>
             </div>
           {/each}
         {:else}
           {#each filteredConversations as conversation (conversation.contact.id)}
+            {@const isCurrent = $currentContact?.id === conversation.contact.id}
             <div
               animate:flip={{ duration: 300, easing: cubicOut }}
               transition:fade={{ duration: 200 }}
-              class="relative group cursor-pointer focus:outline-none"
+              class="relative focus:outline-none"
               role="button"
               tabindex="0"
               onclick={() => conversationHandleClick(conversation)}
@@ -174,108 +177,95 @@
               }}
             >
               <div
-                class="flex items-center gap-2 p-2 rounded-lg transition-all duration-200 border
-                       {$currentContact?.id === conversation.contact.id
-                         ? 'bg-gray-100 dark:bg-zinc-800 border-gray-300 dark:border-zinc-600'
-                         : 'border-transparent hover:bg-gray-50 dark:hover:bg-zinc-800/50'}"
+                class={`group relative overflow-hidden rounded-[20px] border px-2.5 py-2 transition-all duration-200 ${
+                  isCurrent
+                    ? 'border-[color:var(--line-strong)] bg-[var(--paper-strong)] shadow-[var(--shadow-strong)] scale-[1.01]'
+                    : 'border-transparent hover:border-[color:var(--line-soft)] hover:bg-[var(--panel-soft)]'
+                }`}
               >
-                <!-- Avatar with Icon -->
-                <div class="relative flex-shrink-0">
-                  <div class="w-8 h-8 rounded-lg bg-gray-800 dark:bg-gray-300 flex items-center justify-center">
-                    <Icon 
-                      icon="carbon:user-avatar" 
-                      class="w-4 h-4 text-gray-200 dark:text-gray-700"
-                    />
-                  </div>
-                  
-                  <!-- Unread indicator -->
-                  {#if conversation.sms_preview?.status === SmsStatus.Unread}
-                    <div 
-                      class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full
-                             border-2 border-white dark:border-zinc-900"
-                      transition:scale={{ duration: 200 }}
-                    ></div>
-                  {/if}
-                </div>
+                <div class="flex items-center gap-2.5">
+                  <div class="relative flex-shrink-0">
+                    <div class={`flex h-10 w-10 items-center justify-center rounded-[18px] transition-all duration-200 ${isCurrent ? 'bg-[var(--ink-strong)] text-[var(--paper-strong)] shadow-[var(--shadow-strong)]' : 'bg-[var(--panel-strong)] text-[var(--text-secondary)] border border-[color:var(--line-soft)]'}`}>
+                      <Icon icon="carbon:user-avatar" class="h-[18px] w-[18px]" />
+                    </div>
 
-                <!-- Content -->
-                <div class="flex-1 min-w-0">
-                  <!-- Name and Time -->
-                  <div class="flex items-center justify-between mb-1">
-                    <h3 class="font-medium text-[13px] text-gray-800 dark:text-gray-200 truncate pr-2">
-                      {conversation.contact.name}
-                    </h3>
-                    {#if !conversation.contact.new && conversation.sms_preview?.timestamp}
-                      <span class="text-[11px] text-gray-500 dark:text-gray-400 flex-shrink-0">
-                        {formatDate(conversation.sms_preview.timestamp)}
-                      </span>
+                    {#if conversation.sms_preview?.status === SmsStatus.Unread}
+                      <div
+                        class="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2"
+                        style="background: var(--accent-copper); border-color: var(--panel-strong);"
+                        transition:scale={{ duration: 200 }}
+                      ></div>
                     {/if}
                   </div>
 
-                  <!-- Preview Message and SIM Badge -->
-                  <div class="flex items-center gap-1.5">
+                  <div class="min-w-0 flex-1">
+                    <div class="mb-0.5 flex items-start justify-between gap-2">
+                      <div class="min-w-0">
+                        <h3 class="truncate pr-2 text-sm font-semibold" style="color: var(--text-strong);">
+                          {conversation.contact.name}
+                        </h3>
+                        {#if conversation.sms_preview}
+                          <span class="mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                            style="background: var(--panel-strong); color: var(--text-secondary);"
+                          >
+                            {getSimCardDisplayName(conversation.sms_preview.sim_id)}
+                          </span>
+                        {/if}
+                      </div>
+
+                      {#if !conversation.contact.new && conversation.sms_preview?.timestamp}
+                        <span class="shrink-0 pt-0.5 text-[11px] font-medium" style="color: var(--text-muted);">
+                          {formatDate(conversation.sms_preview.timestamp)}
+                        </span>
+                      {/if}
+                    </div>
+
                     {#if conversation.sms_preview}
-                      <!-- SIM Card Badge -->
-                      <span 
-                        class="inline-flex items-center px-1.5 py-0.5 text-[11px] rounded font-medium
-                               bg-gray-200 dark:bg-zinc-700 text-gray-600 dark:text-gray-400
-                               flex-shrink-0"
-                      >
-                        {getSimCardDisplayName(conversation.sms_preview.sim_id)}
-                      </span>
-                      
-                      <!-- Message Content -->
-                      <p class="text-[12px] text-gray-500 dark:text-gray-400 line-clamp-1 flex-1">
+                      <p class="line-clamp-1 text-[13px] leading-5" style="color: var(--text-secondary);">
                         {conversation.sms_preview.message}
                       </p>
                     {:else}
-                      <span class="text-[12px] text-gray-400 dark:text-gray-500 italic">
-                        {conversation.contact.new ? 'New conversation' : 'No messages'}
+                      <span class="text-[13px] italic" style="color: var(--text-muted);">
+                        {conversation.contact.new ? 'New conversation draft' : 'No messages yet'}
                       </span>
                     {/if}
                   </div>
-                </div>
 
-                <!-- Delete button for new contacts -->
-                {#if conversation.contact.new === true}
-                  <button
-                    class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg
-                           bg-gray-200 dark:bg-zinc-700 hover:bg-gray-300 dark:hover:bg-zinc-600
-                           text-gray-600 dark:text-gray-400 transition-all duration-200"
-                    onclick={(e) => {
-                      e.stopPropagation();
-                      deleteConversationHandleClick(conversation);
-                    }}
-                    title="Delete"
-                  >
-                    <Icon icon="carbon:trash-can" class="w-3.5 h-3.5" />
-                  </button>
-                {/if}
+                  {#if conversation.contact.new === true}
+                    <button
+                      class="flex h-9 w-9 items-center justify-center rounded-full opacity-0 transition-all duration-200 group-hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5"
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        deleteConversationHandleClick(conversation);
+                      }}
+                      title="Delete"
+                    >
+                      <Icon icon="carbon:trash-can" class="h-4 w-4" style="color: var(--text-muted);" />
+                    </button>
+                  {/if}
+                </div>
               </div>
             </div>
           {/each}
         {/if}
 
-        <!-- Empty State -->
         {#if !$conversationLoading && filteredConversations.length === 0}
-          <div class="flex flex-col items-center justify-center py-12 text-center">
-            <div class="w-16 h-16 rounded-lg bg-gray-100 dark:bg-zinc-800 flex items-center justify-center mb-4">
-              <Icon icon="carbon:chat" class="w-8 h-8 text-gray-400 dark:text-gray-600" />
+          <div class="shell-card-muted flex flex-col items-center justify-center px-6 py-12 text-center">
+            <div class="shell-icon-badge-muted mb-4 h-14 w-14 rounded-3xl">
+              <Icon icon="carbon:chat" class="h-7 w-7" />
             </div>
-            <p class="text-gray-700 dark:text-gray-300 text-sm font-medium mb-1">
+            <p class="text-base font-semibold" style="color: var(--text-strong);">
               {searchTemporaryValue ? 'No results found' : 'No conversations'}
             </p>
-            <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">
-              {searchTemporaryValue ? 'Try a different search term' : 'Start a new conversation to get started'}
+            <p class="mt-2 max-w-xs text-sm leading-6" style="color: var(--text-muted);">
+              {searchTemporaryValue ? 'Try a different search term.' : 'Start a new conversation to begin sending messages.'}
             </p>
             {#if !searchTemporaryValue}
               <button
                 onclick={createNewMessage}
-                class="px-4 py-2 bg-gray-800 dark:bg-gray-200 text-gray-100 dark:text-gray-900
-                       hover:bg-gray-700 dark:hover:bg-gray-300 rounded-lg text-sm font-medium
-                       transition-all duration-200 flex items-center gap-2 active:scale-[0.95]"
+                class="shell-button shell-button-primary mt-5"
               >
-                <Icon icon="carbon:add" class="w-4 h-4" />
+                <Icon icon="carbon:add" class="h-4 w-4" />
                 New Conversation
               </button>
             {/if}
@@ -287,29 +277,6 @@
 </div>
 
 <style>
-  .scrollbar-thin {
-    scrollbar-width: thin;
-    scrollbar-color: rgb(156 163 175) transparent;
-  }
-  
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  .scrollbar-thin::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: rgb(156 163 175);
-    border-radius: 3px;
-  }
-  
-
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background-color: rgb(107 114 128);
-  }
-
   .line-clamp-1 {
     display: -webkit-box;
     -webkit-line-clamp: 1;
