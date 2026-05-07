@@ -1,136 +1,71 @@
-# 📱 SMS Gateway
+# SMS Gateway
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/214zzl995/sms-gateway)
+SMS Gateway is a self-hosted web workspace for handling SMS traffic across multiple modems and SIM cards. It keeps conversations, SIM status, and device controls in one place so you can reply faster, monitor line health, and hand messages off to the rest of your stack.
 
-<div align="center">
-  <img src="https://raw.githubusercontent.com/214zzl995/sms-gateway/main/frontend/public/logo.svg" alt="SMS Gateway Logo" width="200">
-  <h3>A modern SMS management and forwarding system</h3>
-</div>
+## Why SMS Gateway
 
-## 📖 Overview
+- Keep inbound and outbound SMS in a clean, conversation-first workspace.
+- Manage multiple SIM cards without losing per-device visibility.
+- Check signal, operator, storage, and health status from the same UI.
+- Forward messages into your own workflows with webhook support.
+- Use raw AT debugging when a device needs closer inspection.
 
-SMS Gateway is a comprehensive solution for receiving, sending, and forwarding SMS messages through GSM modems. It provides a modern web-based interface for managing SMS conversations and offers powerful webhook functionality with extensive filtering capabilities.
+## Interface Preview
 
-### Key Features
+### Conversation Workspace
 
-- **Multi-device Support**: Connect to multiple GSM modems simultaneously
-- **Real-time Messaging**: Send and receive SMS with live updates via SSE
-- **Modern Web Interface**: Intuitive conversation-based UI with SIM card management
-- **Powerful Webhooks**: Forward SMS to external services with advanced filtering
-- **SIM-centric Architecture**: Manage multiple SIM cards with individual settings
-- **Flexible Configuration**: TOML-based configuration with comprehensive options
-- **PDU Support**: Full PDU encoding/decoding with UCS2 character support
+<p align="center">
+  <img src="docs/assets/readme/readme-workspace.png" alt="SMS Gateway conversation workspace" width="100%">
+</p>
 
-## 🛠️ Building From Source
+### More Screens
 
-### Prerequisites
+<table>
+  <tr>
+    <td width="50%">
+      <img src="docs/assets/readme/readme-login.png" alt="SMS Gateway login screen" width="100%">
+    </td>
+    <td width="50%">
+      <img src="docs/assets/readme/readme-sim-at-debug.png" alt="SMS Gateway SIM detail and AT debug screen" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Secure Login</sub></td>
+    <td align="center"><sub>SIM Detail and AT Debug</sub></td>
+  </tr>
+</table>
 
-- Rust 1.60+ and Cargo
-- Node.js 16+ and npm/pnpm
-- SQLite
+## Quick Start
 
-### Step 1: Build the Frontend
-
-```bash
-# Navigate to the frontend directory
-cd frontend
-
-# Install dependencies
-pnpm install
-
-# Build the frontend
-pnpm run build
-```
-
-This will generate a `dist` directory within the frontend folder.
-
-### Step 2: Build the Backend
-
-```bash
-# Return to the project root
-cd ..
-
-# Build the backend in release mode
-cargo build --release
-```
-
-The compiled binary will be available in `target/release/sms-gateway`.
-
-## 🚀 Running the Application
-
-```bash
-# Run with default settings
-./target/release/sms-gateway
-
-# Specify a custom config file
-./target/release/sms-gateway --config /path/to/config.toml
-
-# Set custom log directory
-./target/release/sms-gateway --log /path/to/logs
-
-# Set log level
-./target/release/sms-gateway --log-level debug
-
-# Update to the latest release
-./target/release/sms-gateway update
-
-# Show version
-./target/release/sms-gateway version
-```
-
-## ⚙️ Configuration
-
-The application is configured using a TOML file. By default, it looks for the config file at:
-- Debug mode: `./config.toml`
-- Release mode: `/etc/sms-gateway/config.toml`
-
-Copy `config.toml.example` to `config.toml` and modify according to your setup:
+1. Copy the example configuration:
 
 ```bash
 cp config.toml.example config.toml
 ```
 
-### Basic Configuration
+2. Build the frontend:
 
-```toml
-[settings]
-server_host = "0.0.0.0"
-server_port = 8080
-username = "admin"
-password = "your_secure_password"
-read_sms_frequency = 30
-
-# Multiple device support
-[[devices]]
-com_port = "/dev/ttyUSB0"
-baud_rate = 115200
-
-[[devices]]
-com_port = "/dev/ttyUSB1"
-baud_rate = 115200
+```bash
+cd frontend
+pnpm install
+pnpm run build
 ```
 
-### Webhook Configuration
+3. Start the server:
 
-```toml
-[[settings.webhooks]]
-url = "https://your-endpoint.com/webhook"
-method = "POST"
-
-[settings.webhooks.headers]
-"Content-Type" = "application/json"
-
-body = '''
-{
-    "from": "@contact@",
-    "message": "@message@",
-    "timestamp": "@timestamp@"
-}
-'''
+```bash
+cargo run --release -- --config ./config.toml
 ```
 
-For detailed configuration options including filtering, see `config.toml.example`.
+4. Open `http://localhost:8080` in your browser.
 
-## 📝 License
+## Configuration
 
-This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+- Start with [`config.toml.example`](./config.toml.example).
+- Add your modem ports under `[[devices]]`.
+- Set the web login, polling interval, and webhook behavior under `[settings]`.
+- For the complete set of available options, use the example config as the reference.
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
