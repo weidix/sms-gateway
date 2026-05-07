@@ -43,7 +43,15 @@ test("signal strength icons reserve stable space in the title and align bars wit
   );
   assert.match(
     indicatorSource,
-    /<div class="signal-strength-compact flex h-full w-full items-end justify-center gap-1">/,
+    /<div class="signal-strength-compact flex h-\[0\.9rem\] items-end justify-center gap-\[0\.16rem\]">/,
+  );
+  assert.match(
+    indicatorSource,
+    /#each Array\(3\) as _, i/,
+  );
+  assert.match(
+    indicatorSource,
+    /class="signal-strength-bar w-\[0\.2rem\] shrink-0 rounded-full"/,
   );
   assert.match(
     indicatorSource,

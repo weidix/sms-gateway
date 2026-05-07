@@ -30,11 +30,11 @@
 </script>
 
 {#if compact}
-    <div class="signal-strength-compact flex h-full w-full items-end justify-center gap-1">
-        {#each Array(5) as _, i}
+    <div class="signal-strength-compact flex h-[0.9rem] items-end justify-center gap-[0.16rem]">
+        {#each Array(3) as _, i}
             <div
-                class="rounded-full"
-                style={`width: 0.24rem; height: ${0.42 + i * 0.14}rem; background: ${i < bars ? 'var(--accent-copper)' : 'rgba(104, 114, 87, 0.18)'};`}
+                class="signal-strength-bar w-[0.2rem] shrink-0 rounded-full"
+                style={`height: ${0.38 + i * 0.17}rem; background: ${i < Math.ceil((bars / 5) * 3) ? 'var(--text-secondary)' : 'color-mix(in srgb, var(--text-secondary) 18%, transparent)'};`}
             ></div>
         {/each}
     </div>

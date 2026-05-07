@@ -133,6 +133,10 @@ test("primary action buttons keep readable contrast on hover and press", async (
     source,
     /\.shell-button-primary:active\s*\{[\s\S]*color:\s*#fbf4ea;/,
   );
+  assert.match(
+    source,
+    /html\s*\{[\s\S]*font-size:\s*90%;/,
+  );
 });
 
 test("sidebar preserves search focus glow without losing scroll clipping", async () => {
