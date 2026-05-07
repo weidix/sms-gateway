@@ -5,7 +5,7 @@
   let { onSimCardClick = () => {}, onLogoutClick = () => {}, onConversationSelect = () => {} } = $props();
 </script>
 
-<div class="shell-card flex h-full w-full flex-col overflow-hidden p-3 sm:p-4">
+<div class="shell-card flex h-full w-full flex-col overflow-visible p-3 sm:p-4">
   <div class="mb-3 flex items-center justify-between gap-3">
     <div class="flex items-center gap-3">
       <div class="shell-icon-badge">
@@ -19,7 +19,7 @@
     <span class="shell-chip shell-chip-muted hidden sm:inline-flex">Relay</span>
   </div>
 
-  <div class="min-h-0 flex-1 overflow-hidden">
+  <div class="min-h-0 flex-1 overflow-visible">
     <ConversationList onConversationSelect={onConversationSelect} />
   </div>
 

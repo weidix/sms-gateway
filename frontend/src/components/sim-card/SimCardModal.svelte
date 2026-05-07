@@ -118,23 +118,23 @@
 
 <Modal {isOpen} {onClose}>
     <div
-        class="flex items-center justify-between gap-4 border-b px-5 py-3 sm:px-6"
+        class="flex flex-col gap-3 border-b px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6"
         style="border-color: var(--line-soft);"
     >
-        <div class="flex items-center gap-3">
-            <div class="shell-icon-badge">
+        <div class="flex min-w-0 items-center gap-3">
+            <div class="shell-icon-badge shrink-0">
                 <Icon icon="carbon:sim-card" class="h-4 w-4" />
             </div>
-            <div>
+            <div class="min-w-0">
                 <p class="shell-label">Device Detail</p>
-                <h2 class="shell-heading text-[1.75rem] font-semibold leading-none">
+                <h2 class="shell-heading text-xl font-semibold leading-tight sm:text-[1.4rem] lg:text-[1.75rem]">
                     SIM Card Information
                 </h2>
             </div>
         </div>
 
-        <div class="flex items-center gap-3">
-            <span class="shell-chip shell-chip-muted">
+        <div class="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+            <span class="shell-chip shell-chip-muted text-[11px] sm:text-xs">
                 {$simCards.length} SIM{$simCards.length === 1 ? '' : 's'}
             </span>
             <button

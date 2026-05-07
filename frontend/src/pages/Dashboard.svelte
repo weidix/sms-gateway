@@ -66,11 +66,11 @@
       style="border-color: var(--line-soft); background: linear-gradient(180deg, var(--panel-strong), rgba(255,255,255,0));"
     >
       <button
-        class="shell-button h-10 px-3 py-2"
+        class="shell-button h-10 min-w-0 max-w-[calc(100%-3.5rem)] px-3 py-2"
         onclick={toggleSidebar}
       >
         <Icon icon={isSidebarOpen ? "carbon:close" : "carbon:menu"} class="h-5 w-5" />
-        <span class="text-sm">{isSidebarOpen ? 'Close' : 'Conversations'}</span>
+        <span class="truncate text-xs font-medium sm:text-sm">{isSidebarOpen ? 'Close' : 'Conversations'}</span>
       </button>
 
       <button

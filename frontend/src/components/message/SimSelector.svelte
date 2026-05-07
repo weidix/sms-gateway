@@ -8,7 +8,6 @@
 
   let showSimSelector = $state(false);
   let searchText = $state("");
-  let expandedContent = $state(false);
 
   let filteredSimCards = $derived(
     $simCards.filter(
@@ -34,36 +33,25 @@
   function selectSim(sim) {
     selectedSim = sim;
     localStorage.setItem("selectedSimId", sim.id);
-    expandedContent = false;
-    setTimeout(() => {
-      showSimSelector = false;
-    }, 200);
+    closeSimSelector();
+  }
+
+  function closeSimSelector() {
+    showSimSelector = false;
     searchText = "";
   }
 
   function toggleSimSelector() {
+    showSimSelector = !showSimSelector;
     if (!showSimSelector) {
-      showSimSelector = true;
-      requestAnimationFrame(() => {
-        expandedContent = true;
-      });
-    } else {
-      expandedContent = false;
-      setTimeout(() => {
-        showSimSelector = false;
-      }, 200);
+      searchText = "";
     }
-    searchText = "";
   }
 
   function clickOutside(node) {
     const handleClick = (event) => {
       if (!node.contains(event.target)) {
-        expandedContent = false;
-        setTimeout(() => {
-          showSimSelector = false;
-        }, 200);
-        searchText = "";
+        closeSimSelector();
       }
     };
     document.addEventListener("click", handleClick, true);
@@ -76,19 +64,15 @@
   }
 </script>
 
-<div class="relative" use:clickOutside>
-  <div
-    class="sim-selector-width relative transition-all duration-300 ease-out w-full sm:max-w-none"
-    style={`--sim-width: ${showSimSelector ? '320px' : '200px'};`}
-  >
-    {#if expandedContent}
-      <!-- 向上弹出的内容 -->
+<div class="sim-selector-shell relative" use:clickOutside>
+  <div class="sim-selector-trigger w-full">
+    {#if showSimSelector}
       <div
-        class="absolute bottom-full left-0 right-0 overflow-y-hide scrollbar-hide"
-        transition:fly={{ y: 100, duration: 200, easing: quintOut }}
+        class="absolute bottom-[calc(100%+0.75rem)] left-0 z-20 w-full max-w-[calc(100vw-1.5rem)] overflow-y-hide scrollbar-hide md:w-[var(--sim-panel-width)] md:max-w-none"
+        transition:fly={{ y: 14, duration: 200, easing: quintOut }}
       >
         <div
-          class="max-h-[70vh] overflow-hidden rounded-t-[26px] border border-b-0 shadow-[var(--shadow-strong)]"
+          class="max-h-[70vh] overflow-hidden rounded-[26px] border shadow-[var(--shadow-strong)]"
           style="border-color: var(--line-soft); background: var(--panel-strong);"
         >
           <div
@@ -110,7 +94,7 @@
                 </span>
               </div>
               <button
-                onclick={toggleSimSelector}
+                onclick={closeSimSelector}
                 class="flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-200 hover:bg-black/5 dark:hover:bg-white/5"
               >
                 <Icon
@@ -183,17 +167,19 @@
                       </div>
                     {/if}
                   </div>
-                  {#if isSelected}
-                    <div class="flex items-center gap-1.5">
-                      <span class="shell-status-dot"></span>
-                      <span
-                        class="text-xs font-medium"
-                        style="color: var(--text-muted);"
-                      >
-                        Active
-                      </span>
-                    </div>
-                  {/if}
+                  <div class="shrink-0">
+                    {#if isSelected}
+                      <div class="flex items-center gap-1.5">
+                        <span class="shell-status-dot"></span>
+                        <span
+                          class="text-xs font-medium"
+                          style="color: var(--text-muted);"
+                        >
+                          Active
+                        </span>
+                      </div>
+                    {/if}
+                  </div>
                 </button>
               {:else}
                 <div
@@ -213,63 +199,52 @@
       </div>
     {/if}
 
-    <!-- 主按钮 - 始终显示，根据状态改变样式 -->
-    <div
-      class={`relative border transition-all duration-250 ease-out ${
-        expandedContent
-          ? 'rounded-b-[26px] border-t-0 shadow-[var(--shadow-strong)]'
-          : 'rounded-[24px]'
+    <button
+      onclick={toggleSimSelector}
+      class={`flex h-14 w-full items-center gap-3 rounded-[24px] border px-4 text-left transition-all duration-200 ${
+        showSimSelector
+          ? 'shadow-[var(--shadow-strong)]'
+          : 'hover:bg-black/5 dark:hover:bg-white/5'
       }`}
       style="border-color: var(--line-soft); background: var(--panel-strong);"
     >
-      {#if expandedContent}
-        <div
-          class="absolute left-0 right-0 top-0 h-1 -mt-[1px]"
-          style="background: var(--panel-strong);"
-        ></div>
-      {/if}
-
-      <button
-        onclick={toggleSimSelector}
-        class={`flex h-14 w-full items-center gap-3 px-4 transition-colors duration-200 ${
-          expandedContent
-            ? 'rounded-b-[26px]'
-            : 'rounded-[24px] hover:bg-black/5 dark:hover:bg-white/5'
-        }`}
-      >
-        <div class="shell-icon-badge h-9 w-9 rounded-xl flex-shrink-0">
+      <div class="shell-icon-badge h-9 w-9 shrink-0 rounded-xl">
+        <Icon
+          icon="carbon:sim-card"
+          class="h-3.5 w-3.5"
+        />
+      </div>
+      {#if selectedSim}
+        <span
+          class="min-w-0 flex-1 truncate text-sm font-medium"
+          style="color: var(--text-strong);"
+        >
+          {selectedSim.alias ||
+            selectedSim.phone_number ||
+            `SIM ${selectedSim.id.slice(-6)}`}
+        </span>
+        <div class="ml-auto flex shrink-0 items-center gap-2.5">
+          <span class="shell-status-dot"></span>
           <Icon
-            icon="carbon:sim-card"
-            class="h-3.5 w-3.5"
+            icon="carbon:chevron-down"
+            class="h-4 w-4 transition-transform duration-300"
+            style="transform: rotate({showSimSelector ? '180deg' : '0deg'}); color: var(--text-muted);"
           />
         </div>
-        {#if selectedSim}
-          <span
-            class="flex-1 truncate text-left text-sm font-medium"
-            style="color: var(--text-strong);"
-          >
-            {selectedSim.alias ||
-              selectedSim.phone_number ||
-              `SIM ${selectedSim.id.slice(-6)}`}
-          </span>
-          <div class="flex items-center gap-1.5">
-            <span class="shell-status-dot"></span>
-          </div>
-        {:else}
-          <span
-            class="flex-1 text-left text-sm"
-            style="color: var(--text-muted);"
-          >
-            Select SIM
-          </span>
-        {/if}
+      {:else}
+        <span
+          class="min-w-0 flex-1 text-sm"
+          style="color: var(--text-muted);"
+        >
+          Select SIM
+        </span>
         <Icon
           icon="carbon:chevron-down"
-          class="h-4 w-4 flex-shrink-0 transition-transform duration-300"
-          style="transform: rotate({expandedContent ? '180deg' : '0deg'}); color: var(--text-muted);"
+          class="h-4 w-4 shrink-0 transition-transform duration-300"
+          style="transform: rotate({showSimSelector ? '180deg' : '0deg'}); color: var(--text-muted);"
         />
-      </button>
-    </div>
+      {/if}
+    </button>
   </div>
 </div>
 
@@ -283,13 +258,18 @@
     scrollbar-width: none;
   }
 
-  .sim-selector-width {
-    width: min(var(--sim-width), 100%);
+  .sim-selector-shell {
+    --sim-trigger-width: 220px;
+    --sim-panel-width: 320px;
   }
 
-  @media (min-width: 640px) {
-    .sim-selector-width {
-      width: var(--sim-width);
+  .sim-selector-trigger {
+    width: min(var(--sim-trigger-width), 100%);
+  }
+
+  @media (min-width: 768px) {
+    .sim-selector-trigger {
+      width: var(--sim-trigger-width);
     }
   }
 </style>

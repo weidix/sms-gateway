@@ -117,17 +117,17 @@
     >
         <div class="shell-card-compact mb-6 p-5 sm:p-6">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div class="flex items-center gap-4">
-                    <div class="shell-icon-badge h-12 w-12 rounded-2xl">
+                <div class="flex min-w-0 items-center gap-4">
+                    <div class="shell-icon-badge h-12 w-12 shrink-0 rounded-2xl">
                         <Icon
                             icon="carbon:sim-card"
                             class="h-5 w-5"
                         />
                     </div>
-                    <div>
+                    <div class="min-w-0">
                         <p class="shell-label">Active Device</p>
                         <h3
-                            class="shell-heading mt-1 text-2xl font-semibold"
+                            class="shell-heading mt-1 text-xl font-semibold sm:text-2xl"
                         >
                             {getDisplayName(simCard)}
                         </h3>
@@ -137,30 +137,34 @@
                     </div>
                 </div>
 
-                <div class="flex flex-wrap items-center gap-2">
-                    <button
-                        class="shell-button"
-                        onclick={openAtDebug}
-                        title="Open AT debug"
-                    >
-                        <Icon icon="carbon:terminal" class="h-4 w-4" />
-                        <span>AT Debug</span>
-                    </button>
-                    <button
-                        class={`shell-button h-11 w-11 px-0 ${isRefreshing ? 'cursor-not-allowed opacity-75' : ''}`}
-                        onclick={handleRefresh}
-                        title="Refresh SIM info"
-                        disabled={isRefreshing}
-                    >
-                        <Icon
-                            icon="carbon:restart"
-                            class={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}
-                        />
-                    </button>
+                <div class="flex w-full flex-col gap-2 sm:w-auto">
+                    <div class="flex w-full items-center gap-2">
+                        <button
+                            class="shell-button flex-1"
+                            onclick={openAtDebug}
+                            title="Open AT debug"
+                        >
+                            <Icon icon="carbon:terminal" class="h-4 w-4" />
+                            <span>AT Debug</span>
+                        </button>
+                        <button
+                            class={`shell-button h-11 w-11 shrink-0 px-0 ${isRefreshing ? 'cursor-not-allowed opacity-75' : ''}`}
+                            onclick={handleRefresh}
+                            title="Refresh SIM info"
+                            disabled={isRefreshing}
+                        >
+                            <Icon
+                                icon="carbon:restart"
+                                class={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}
+                            />
+                        </button>
+                    </div>
                     {#if simInfo?.model_info?.model}
-                        <span class="shell-chip">
-                            {simInfo.model_info.model}
-                        </span>
+                        <div class="flex w-full justify-end">
+                            <span class="shell-chip">
+                                {simInfo.model_info.model}
+                            </span>
+                        </div>
                     {/if}
                 </div>
             </div>

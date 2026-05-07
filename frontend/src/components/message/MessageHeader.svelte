@@ -7,6 +7,9 @@
     concatInputText = "",
     onEditRecipient = () => {}
   } = $props();
+
+  const recipientTitleClass =
+    "mt-0.5 block truncate text-[0.95rem] font-medium sm:text-base lg:text-[1.05rem]";
 </script>
 
 <header
@@ -27,8 +30,8 @@
               class="min-w-0 flex-1 rounded-[14px] px-0 py-1 text-left transition-opacity duration-200 hover:opacity-80"
               onclick={onEditRecipient}
             >
-              <span
-                class={`block truncate text-base font-medium sm:text-[1.05rem] ${
+              <p
+                class={`${recipientTitleClass} ${
                   concatInputText ? "" : "italic"
                 }`}
                 style={`color: ${
@@ -36,7 +39,7 @@
                 };`}
               >
                 {concatInputText || "Set recipient"}
-              </span>
+              </p>
             </button>
 
             <button
@@ -52,7 +55,7 @@
             </button>
           </div>
         {:else if $currentContact}
-          <p class="mt-0.5 truncate text-base font-medium sm:text-[1.05rem]" style="color: var(--text-strong);">
+          <p class={recipientTitleClass} style="color: var(--text-strong);">
             {$currentContact.name}
           </p>
         {/if}

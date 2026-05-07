@@ -70,20 +70,20 @@
     style="padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));"
   >
     <div class="shell-card-compact flex flex-col gap-3 px-3 py-3 sm:px-4 sm:py-4">
-      <div class="flex items-center justify-between gap-3 px-1">
+      <div class="flex flex-col gap-2 px-1 sm:flex-row sm:items-start sm:justify-between">
         <div class="min-w-0">
           <p class="shell-label">Composer</p>
-          <p class="text-sm font-medium" style="color: var(--text-secondary);">
+          <p class="text-xs font-medium sm:text-sm" style="color: var(--text-secondary);">
             {showNewMessage && !concatInputText.trim() ? "Add a recipient to unlock sending." : "Type, select a SIM, and send immediately."}
           </p>
         </div>
-        <span class="shell-chip shell-chip-muted shrink-0">
+        <span class="shell-chip shell-chip-muted self-start sm:shrink-0">
           {sendMessageContent.trim() ? `${sendMessageContent.length} chars` : "Ready"}
         </span>
       </div>
 
       <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
-        <div class="relative flex-1">
+        <div class="relative min-w-0 flex-1">
           <Icon
             icon="carbon:chat"
             class="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2"
@@ -100,19 +100,19 @@
             placeholder={showNewMessage && !concatInputText.trim()
               ? "Enter recipient first"
               : "Type your message"}
-            class="shell-input h-14 pl-12 pr-4"
+            class="shell-input h-14 rounded-[24px] pl-12 pr-4"
           />
         </div>
 
-        <div class="flex flex-col gap-3 sm:flex-row xl:w-auto">
-          <div class="w-full sm:min-w-[240px] xl:min-w-[260px]">
+        <div class="flex flex-col gap-3 md:flex-row xl:w-auto xl:shrink-0">
+          <div class="w-full md:w-[220px]">
             <SimSelector bind:selectedSim />
           </div>
 
           <button
             onclick={handleSendClick}
             disabled={(showNewMessage && !concatInputText.trim()) || !sendMessageContent.trim()}
-            class={`shell-button h-14 min-w-[124px] ${((showNewMessage && !concatInputText.trim()) || !sendMessageContent.trim()) ? 'cursor-not-allowed opacity-50' : 'shell-button-primary'}`}
+            class={`shell-button h-14 min-w-[124px] shrink-0 rounded-[24px] ${((showNewMessage && !concatInputText.trim()) || !sendMessageContent.trim()) ? 'cursor-not-allowed opacity-50' : 'shell-button-primary'}`}
           >
             <Icon
               icon="carbon:send-filled"
@@ -137,7 +137,7 @@
         <div class="shell-icon-badge mx-auto mb-4">
           <Icon icon="carbon:send-alt" class="h-6 w-6" />
         </div>
-        <h3 class="shell-heading text-2xl font-semibold">
+        <h3 class="shell-heading text-xl font-semibold sm:text-2xl">
           Confirm Message
         </h3>
         <p class="mt-2 text-sm leading-6 shell-subtitle">
@@ -199,7 +199,7 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
         <button
           onclick={cancelSend}
           class="shell-button w-full"

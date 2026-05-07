@@ -30,11 +30,11 @@
 </script>
 
 {#if compact}
-    <div class="flex items-center gap-0.5">
+    <div class="signal-strength-compact flex h-full w-full items-end justify-center gap-1">
         {#each Array(5) as _, i}
             <div
                 class="rounded-full"
-                style={`width: 0.22rem; height: ${0.35 + i * 0.12}rem; background: ${i < bars ? 'var(--accent-copper)' : 'rgba(104, 114, 87, 0.18)'};`}
+                style={`width: 0.24rem; height: ${0.42 + i * 0.14}rem; background: ${i < bars ? 'var(--accent-copper)' : 'rgba(104, 114, 87, 0.18)'};`}
             ></div>
         {/each}
     </div>
@@ -47,11 +47,11 @@
         </div>
         <div class="flex-grow">
             <div class="shell-data-label">Signal Strength</div>
-            <div class="mt-1 flex items-center gap-3">
-                <div class="text-sm font-medium" style="color: var(--text-strong);">
+            <div class="mt-1 flex items-end gap-3">
+                <div class="text-sm font-medium leading-none" style="color: var(--text-strong);">
                     {label}
                 </div>
-                <div class="flex items-end gap-1">
+                <div class="signal-strength-bars flex items-end gap-1">
                     {#each Array(5) as _, i}
                         <div
                             class="rounded-full"

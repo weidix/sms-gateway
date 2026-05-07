@@ -303,7 +303,24 @@
   }
 
   .shell-button-primary:hover {
+    background: linear-gradient(
+      180deg,
+      var(--accent-copper) 0%,
+      var(--accent-copper-strong) 100%
+    );
+    border-color: transparent;
+    color: #fbf4ea;
     filter: saturate(1.06) brightness(1.02);
+  }
+
+  .shell-button-primary:active {
+    background: linear-gradient(
+      180deg,
+      var(--accent-copper) 0%,
+      var(--accent-copper-strong) 100%
+    );
+    border-color: transparent;
+    color: #fbf4ea;
   }
 
   .shell-button-accent {

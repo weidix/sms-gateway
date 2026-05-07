@@ -15,6 +15,20 @@ export function getBottomAlignmentRequest(source) {
   }
 }
 
+export function canApplyBottomAlignment({
+  pendingBottomAlignment,
+  loading,
+  showLoading,
+  messageContainer,
+}) {
+  return Boolean(
+    pendingBottomAlignment &&
+      !loading &&
+      !showLoading &&
+      messageContainer,
+  );
+}
+
 export function scrollContainerToBottom(container, behavior = "auto") {
   if (!container) {
     return;

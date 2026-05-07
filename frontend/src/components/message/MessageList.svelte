@@ -22,6 +22,7 @@
   import MessageInput from "./MessageInputOptimized.svelte";
   import {
     MessageScrollAlignment,
+    canApplyBottomAlignment,
     getBottomAlignmentRequest,
     scrollContainerToBottom,
   } from "./messageScroll.js";
@@ -124,7 +125,14 @@
   });
 
   $effect(() => {
-    if (!pendingBottomAlignment || showLoading || !messageContainer) {
+    if (
+      !canApplyBottomAlignment({
+        pendingBottomAlignment,
+        loading,
+        showLoading,
+        messageContainer,
+      })
+    ) {
       return;
     }
 
@@ -393,7 +401,7 @@
         <div class="shell-icon-badge mx-auto mb-4">
           <Icon icon="carbon:user-multiple-add" class="h-6 w-6" />
         </div>
-        <h3 class="shell-heading text-2xl font-semibold">
+        <h3 class="shell-heading text-xl font-semibold sm:text-2xl">
           New Recipient
         </h3>
         <p class="mt-2 text-sm leading-6 shell-subtitle">
@@ -414,7 +422,7 @@
             type="text"
             bind:value={draftRecipientName}
             bind:this={recipientDialogInput}
-            class="w-full appearance-none border-0 bg-transparent p-0 text-lg font-medium outline-none ring-0 placeholder-[color:var(--text-muted)] focus:border-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+            class="w-full appearance-none border-0 bg-transparent p-0 text-base font-medium outline-none ring-0 placeholder-[color:var(--text-muted)] focus:border-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 sm:text-lg"
             style="color: var(--text-strong);"
             placeholder="Enter recipient"
             onkeydown={(event) => {
@@ -426,7 +434,7 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
         <button
           class="shell-button w-full"
           onclick={handleRecipientDialogClose}

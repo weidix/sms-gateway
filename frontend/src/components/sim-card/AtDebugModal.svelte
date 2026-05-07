@@ -138,7 +138,7 @@
             </div>
             <div class="min-w-0">
                 <p class="shell-label">Raw Transport</p>
-                <h3 class="shell-heading mt-1 text-2xl font-semibold">
+                <h3 class="shell-heading mt-1 text-xl font-semibold sm:text-2xl">
                     AT Debug
                 </h3>
                 <p class="text-xs sm:text-sm truncate" style="color: var(--text-muted);">
@@ -148,7 +148,7 @@
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
-            <span class="shell-chip">
+            <span class="shell-chip hidden sm:inline-flex">
                 Raw Command
             </span>
             <button
@@ -162,7 +162,7 @@
     </div>
 
     <div class="border-b p-4 sm:p-5" style="border-color: var(--line-soft); background: var(--panel-soft);">
-        <div class="flex items-center gap-3">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
             <input
                 type="text"
                 bind:value={command}
@@ -171,7 +171,7 @@
                 class="shell-input h-11 flex-1 px-4 font-mono"
             />
             <button
-                class={`shell-button h-11 px-5 ${isRunning || !command.trim() ? 'cursor-not-allowed opacity-50' : 'shell-button-primary'}`}
+                class={`shell-button h-11 w-full px-5 sm:w-auto ${isRunning || !command.trim() ? 'cursor-not-allowed opacity-50' : 'shell-button-primary'}`}
                 onclick={handleSubmit}
                 disabled={isRunning || !command.trim()}
             >

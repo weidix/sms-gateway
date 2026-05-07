@@ -26,7 +26,7 @@
     <div class="flex items-center justify-between">
         <div>
             <p class="shell-label">Profile</p>
-            <h4 class="shell-heading mt-1 text-xl font-semibold">
+            <h4 class="shell-heading mt-1 text-lg font-semibold sm:text-xl">
                 Basic Information
             </h4>
         </div>

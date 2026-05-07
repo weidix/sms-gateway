@@ -95,7 +95,7 @@
                 <Icon icon="mage:activity" class="h-4 w-4" style="color: var(--text-muted);" />
                 <div>
                     <p class="shell-label">Health</p>
-                    <h4 class="shell-heading mt-1 text-xl font-semibold">Operational Health</h4>
+                    <h4 class="shell-heading mt-1 text-lg font-semibold sm:text-xl">Operational Health</h4>
                 </div>
             </div>
 

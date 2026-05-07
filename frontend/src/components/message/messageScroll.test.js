@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   MessageScrollAlignment,
+  canApplyBottomAlignment,
   getBottomAlignmentRequest,
   scrollContainerToBottom,
 } from "./messageScroll.js";
@@ -18,6 +19,30 @@ test("outgoing messages keep smooth follow-up scrolling", () => {
   assert.deepEqual(
     getBottomAlignmentRequest(MessageScrollAlignment.OutgoingMessage),
     { behavior: "smooth", delayMs: 300 },
+  );
+});
+
+test("conversation changes defer bottom alignment until loading finishes", () => {
+  assert.equal(
+    canApplyBottomAlignment({
+      pendingBottomAlignment: { behavior: "auto", delayMs: 0 },
+      loading: true,
+      showLoading: false,
+      messageContainer: {},
+    }),
+    false,
+  );
+});
+
+test("bottom alignment runs only after the loader is hidden and a container exists", () => {
+  assert.equal(
+    canApplyBottomAlignment({
+      pendingBottomAlignment: { behavior: "auto", delayMs: 0 },
+      loading: false,
+      showLoading: false,
+      messageContainer: {},
+    }),
+    true,
   );
 });
 

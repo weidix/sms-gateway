@@ -7,14 +7,14 @@
 </script>
 
 <div class="shell-data-card space-y-4">
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between gap-3">
         <div>
             <p class="shell-label">Diagnostics</p>
-            <h4 class="shell-heading mt-1 text-xl font-semibold">
+            <h4 class="shell-heading mt-1 text-lg font-semibold sm:text-xl">
                 Technical Details
             </h4>
         </div>
-        <div class="shell-icon-badge-muted h-10 w-10 rounded-xl">
+        <div class="shell-icon-badge-muted flex h-10 w-10 items-center justify-center rounded-xl">
             <SignalStrengthIndicator rssi={simInfo?.signal_quality?.rssi || 99} compact={true} />
         </div>
     </div>
