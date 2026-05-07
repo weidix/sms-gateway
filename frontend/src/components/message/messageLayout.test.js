@@ -102,11 +102,11 @@ test("composer input controls share the same pill radius", async () => {
 
   assert.match(
     messageInputSource,
-    /class="shell-input h-14 rounded-\[24px\] pl-12 pr-4"/,
+    /class="shell-input h-12 rounded-\[22px\] pl-11 pr-4 sm:h-14 sm:rounded-\[24px\] sm:pl-12"/,
   );
   assert.match(
     messageInputSource,
-    /class=\{`shell-button h-14 min-w-\[124px\] shrink-0 rounded-\[24px\]/,
+    /class=\{`shell-button h-12 min-w-\[112px\] shrink-0 rounded-\[22px\] sm:h-14 sm:min-w-\[124px\] sm:rounded-\[24px\]/,
   );
   assert.match(
     simSelectorSource,
@@ -136,6 +136,18 @@ test("primary action buttons keep readable contrast on hover and press", async (
   assert.match(
     source,
     /html\s*\{[\s\S]*font-size:\s*90%;/,
+  );
+  assert.match(
+    source,
+    /body\s*\{[\s\S]*min-height:\s*100dvh;/,
+  );
+  assert.match(
+    source,
+    /#app\s*\{[\s\S]*min-height:\s*100dvh;[\s\S]*height:\s*100dvh;/,
+  );
+  assert.match(
+    source,
+    /@media \(max-width: 767px\)\s*\{[\s\S]*input:not\(\[type="checkbox"\]\):not\(\[type="radio"\]\),[\s\S]*textarea,[\s\S]*select\s*\{[\s\S]*font-size:\s*16px;/,
   );
 });
 
@@ -187,6 +199,14 @@ test("message workspace titles and actions stay compact through tablet widths", 
   assert.match(
     messageInputSource,
     /<div class="flex flex-col gap-3 md:flex-row xl:w-auto xl:shrink-0">/,
+  );
+  assert.match(
+    messageInputSource,
+    /class="shell-input h-12 rounded-\[22px\] pl-11 pr-4 sm:h-14 sm:rounded-\[24px\] sm:pl-12"/,
+  );
+  assert.match(
+    messageInputSource,
+    /class=\{`shell-button h-12 min-w-\[112px\] shrink-0 rounded-\[22px\] sm:h-14 sm:min-w-\[124px\] sm:rounded-\[24px\]/,
   );
   assert.match(
     messageListSource,

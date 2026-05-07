@@ -201,14 +201,14 @@
 
     <button
       onclick={toggleSimSelector}
-      class={`flex h-14 w-full items-center gap-3 rounded-[24px] border px-4 text-left transition-all duration-200 ${
+      class={`flex h-12 w-full items-center gap-3 rounded-[22px] border px-3.5 text-left transition-all duration-200 sm:h-14 sm:rounded-[24px] sm:px-4 ${
         showSimSelector
           ? 'shadow-[var(--shadow-strong)]'
           : 'hover:bg-black/5 dark:hover:bg-white/5'
       }`}
       style="border-color: var(--line-soft); background: var(--panel-strong);"
     >
-      <div class="shell-icon-badge h-9 w-9 shrink-0 rounded-xl">
+      <div class="shell-icon-badge h-8 w-8 shrink-0 rounded-xl sm:h-9 sm:w-9">
         <Icon
           icon="carbon:sim-card"
           class="h-3.5 w-3.5"

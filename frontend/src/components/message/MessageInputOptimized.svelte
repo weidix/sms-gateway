@@ -66,10 +66,10 @@
   style="border-color: var(--line-soft); background: linear-gradient(180deg, rgba(255,255,255,0), var(--panel) 28%, var(--panel-strong));"
 >
   <div
-    class="mx-auto max-w-5xl px-3 pb-3 pt-3 sm:px-6 sm:pb-5"
+    class="mx-auto max-w-5xl px-2.5 pb-2.5 pt-2 sm:px-6 sm:pb-5 sm:pt-3"
     style="padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));"
   >
-    <div class="shell-card-compact flex flex-col gap-3 px-3 py-3 sm:px-4 sm:py-4">
+    <div class="shell-card-compact flex flex-col gap-2.5 px-2.5 py-2.5 sm:gap-3 sm:px-4 sm:py-4">
       <div class="flex flex-col gap-2 px-1 sm:flex-row sm:items-start sm:justify-between">
         <div class="min-w-0">
           <p class="shell-label">Composer</p>
@@ -100,7 +100,7 @@
             placeholder={showNewMessage && !concatInputText.trim()
               ? "Enter recipient first"
               : "Type your message"}
-            class="shell-input h-14 rounded-[24px] pl-12 pr-4"
+            class="shell-input h-12 rounded-[22px] pl-11 pr-4 sm:h-14 sm:rounded-[24px] sm:pl-12"
           />
         </div>
 
@@ -112,7 +112,7 @@
           <button
             onclick={handleSendClick}
             disabled={(showNewMessage && !concatInputText.trim()) || !sendMessageContent.trim()}
-            class={`shell-button h-14 min-w-[124px] shrink-0 rounded-[24px] ${((showNewMessage && !concatInputText.trim()) || !sendMessageContent.trim()) ? 'cursor-not-allowed opacity-50' : 'shell-button-primary'}`}
+            class={`shell-button h-12 min-w-[112px] shrink-0 rounded-[22px] sm:h-14 sm:min-w-[124px] sm:rounded-[24px] ${((showNewMessage && !concatInputText.trim()) || !sendMessageContent.trim()) ? 'cursor-not-allowed opacity-50' : 'shell-button-primary'}`}
           >
             <Icon
               icon="carbon:send-filled"

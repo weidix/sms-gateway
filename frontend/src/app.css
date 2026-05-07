@@ -105,7 +105,7 @@
   body {
     margin: 0;
     min-width: 320px;
-    min-height: 100vh;
+    min-height: 100dvh;
     font-family: var(--font-sans);
     background:
       radial-gradient(circle at top left, rgba(171, 113, 65, 0.12), transparent 28%),
@@ -150,7 +150,8 @@
   }
 
   #app {
-    min-height: 100vh;
+    min-height: 100dvh;
+    height: 100dvh;
     width: 100%;
   }
 
@@ -183,6 +184,14 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
+    }
+  }
+
+  @media (max-width: 767px) {
+    input:not([type="checkbox"]):not([type="radio"]),
+    textarea,
+    select {
+      font-size: 16px;
     }
   }
 }
