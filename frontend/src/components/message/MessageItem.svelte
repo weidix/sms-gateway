@@ -22,7 +22,7 @@
         const cleanUrl = url.replace(/[（）]/g, "");
         formattedText = formattedText.replace(
           url,
-          `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="text-gray-900 dark:text-gray-300 underline hover:text-gray-700 dark:hover:text-gray-400">${cleanUrl}</a>`,
+          `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="font-medium underline underline-offset-4 transition-opacity duration-200 hover:opacity-75" style="color: var(--accent-copper); text-decoration-color: rgba(171, 113, 65, 0.38);">${cleanUrl}</a>`,
         );
       });
     }
@@ -33,13 +33,16 @@
       const prefix = fullMatch.slice(0, fullMatch.lastIndexOf(code));
       formattedText = formattedText.replace(
         fullMatch,
-        `${prefix}<span class="inline-flex items-center justify-center gap-1 bg-gray-300 dark:bg-zinc-600 hover:bg-gray-400 dark:hover:bg-zinc-500 text-gray-800 dark:text-gray-200 transition-colors duration-200 cursor-pointer px-1.5 py-0.5 rounded mx-0.5 font-medium" onclick="(function(event){
+        `${prefix}<span class="mx-0.5 inline-flex cursor-pointer items-center justify-center gap-1 rounded-full px-2 py-1 text-xs font-semibold transition-colors duration-200 hover:opacity-80" style="background: var(--accent-soft); color: var(--accent-strong);" onclick="(function(event){
             event.preventDefault();
             event.stopPropagation();
             navigator.clipboard.writeText('${code}');
             const toast = document.createElement('div');
-            toast.className = 'fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-zinc-700 text-gray-100 dark:text-gray-200 px-4 py-2 rounded-lg text-sm opacity-0 transition-opacity duration-300 shadow-lg';
-            toast.textContent = '验证码已复制';
+            toast.className = 'fixed bottom-24 left-1/2 z-[80] -translate-x-1/2 rounded-full px-4 py-2 text-sm font-medium opacity-0 transition-opacity duration-300';
+            toast.style.background = 'var(--panel-contrast)';
+            toast.style.color = 'var(--paper-strong)';
+            toast.style.boxShadow = 'var(--shadow-strong)';
+            toast.textContent = 'Code copied';
             document.body.appendChild(toast);
             requestAnimationFrame(() => toast.style.opacity = '1');
             setTimeout(() => {
@@ -73,41 +76,47 @@
 </script>
 
 <div
-  class="flex mb-3 message-wrapper flex-row"
+  class="message-wrapper mb-3 flex flex-row"
   class:justify-end={message.send}
   class:justify-start={!message.send}
   in:slideDown={{ duration: 300 }}
 >
   <div
-    class="relative max-w-[70%] md:max-w-[65%] lg:max-w-[60%] xl:max-w-[55%]"
+    class="relative max-w-[82%] sm:max-w-[72%] lg:max-w-[60%] xl:max-w-[55%]"
   >
     {#if message.send && message.status !== undefined}
       <div class="absolute top-1/2 -left-6 -translate-y-1/2 transform">
         {#if message.status === SmsStatus.Loading}
           <div
-            class="w-3 h-3 border-2 border-gray-300 dark:border-zinc-600 border-t-gray-600 dark:border-t-gray-400 rounded-full animate-spin"
+            class="h-3 w-3 animate-spin rounded-full border-2"
+            style="border-color: rgba(104, 114, 87, 0.2); border-top-color: var(--accent-copper);"
           ></div>
         {:else if message.status === SmsStatus.Failed}
           <Icon
             icon="mage:information-circle-fill"
-            class="text-red-500 dark:text-red-400 w-5 h-5"
+            class="h-5 w-5"
+            style="color: var(--danger-strong);"
           />
         {:else if message.status === SmsStatus.Read}
           <Icon
             icon="carbon:checkmark-filled"
-            class="text-gray-500 dark:text-gray-400 w-4 h-4"
+            class="h-4 w-4"
+            style="color: var(--accent);"
           />
         {/if}
       </div>
     {/if}
 
     <div
-      class="relative px-4 py-2.5 text-sm rounded-lg
+      class="relative rounded-[24px] px-4 py-3 text-sm
       {message.send
-        ? 'bg-gray-800 dark:bg-gray-300 text-gray-100 dark:text-gray-900'
-        : 'bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-gray-200 border border-gray-200 dark:border-zinc-700'}"
+        ? 'text-[var(--paper-strong)] shadow-[var(--shadow-soft)]'
+        : 'border text-[var(--text-strong)]'}"
+      style={message.send
+        ? 'background: linear-gradient(180deg, var(--panel-contrast), rgba(38,31,25,0.92));'
+        : 'background: var(--panel-strong); border-color: var(--line-soft);'}
     >
-      <p class="whitespace-pre-wrap break-words overflow-hidden leading-relaxed">
+      <p class="overflow-hidden whitespace-pre-wrap break-words leading-7">
         {@html formatMessage(message.message)}
       </p>
     </div>

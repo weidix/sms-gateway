@@ -42,18 +42,22 @@
     }
 </script>
 
-<div class="flex items-center justify-between">
-    <div class="flex items-center">
-        <Icon {icon} class="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
-        <div>
-            <div class="text-xs text-gray-500 dark:text-gray-400">{label}</div>
-            <div class="text-sm font-medium dark:text-gray-300">
+<div class="flex items-start justify-between gap-4 rounded-[20px] border px-4 py-3"
+    style="border-color: var(--line-soft); background: var(--panel-soft);"
+>
+    <div class="flex min-w-0 items-start gap-3">
+        <div class="shell-icon-badge-muted h-10 w-10 rounded-xl">
+            <Icon {icon} class="h-4 w-4" />
+        </div>
+        <div class="min-w-0">
+            <div class="shell-data-label">{label}</div>
+            <div class="mt-1 text-sm font-medium" style="color: var(--text-strong);">
                 {#if isEditing}
                     <input
                         type="text"
                         bind:value={tempValue}
                         bind:this={inputRef}
-                        class="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm {inputClass}"
+                        class="shell-input h-10 {inputClass}"
                         onkeydown={handleKeydown}
                     />
                 {:else}
@@ -62,26 +66,29 @@
             </div>
         </div>
     </div>
-    <div class="flex items-center space-x-1">
+    <div class="flex items-center gap-1">
         {#if isEditing}
             <button
-                class="text-green-600 hover:text-green-800 dark:text-green-400"
+                class="flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-200 hover:bg-black/5 dark:hover:bg-white/5"
                 onclick={save}
+                aria-label="Save field"
             >
-                <Icon icon="mage:check" width="16" height="16" />
+                <Icon icon="mage:check" width="16" height="16" style="color: var(--success-strong);" />
             </button>
             <button
-                class="text-gray-600 hover:text-gray-800 dark:text-gray-400"
+                class="flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-200 hover:bg-black/5 dark:hover:bg-white/5"
                 onclick={cancelEdit}
+                aria-label="Cancel edit"
             >
-                <Icon icon="mage:multiply" width="16" height="16" />
+                <Icon icon="mage:multiply" width="16" height="16" style="color: var(--text-muted);" />
             </button>
         {:else}
             <button
-                class="text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                class="flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-200 hover:bg-black/5 dark:hover:bg-white/5"
                 onclick={startEdit}
+                aria-label="Edit field"
             >
-                <Icon icon="mage:edit" width="16" height="16" />
+                <Icon icon="mage:edit" width="16" height="16" style="color: var(--accent-copper);" />
             </button>
         {/if}
     </div>

@@ -88,84 +88,87 @@
         transition:fly={{ y: 100, duration: 200, easing: quintOut }}
       >
         <div
-          class="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 border-b-0 rounded-t-xl overflow-hidden shadow-lg max-h-[70vh]"
+          class="max-h-[70vh] overflow-hidden rounded-t-[26px] border border-b-0 shadow-[var(--shadow-strong)]"
+          style="border-color: var(--line-soft); background: var(--panel-strong);"
         >
-          <!-- 标题栏 -->
           <div
-            class="px-4 py-3 bg-gray-50 dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700"
+            class="border-b px-4 py-3"
+            style="border-color: var(--line-soft); background: var(--panel-soft);"
           >
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
-                <div class="w-5 h-5 bg-gray-900 dark:bg-gray-100 rounded flex items-center justify-center">
+                <div class="shell-icon-badge h-5 w-5 rounded-md">
                   <Icon
                     icon="carbon:sim-card"
-                    class="w-3 h-3 text-gray-100 dark:text-gray-900"
+                    class="h-3 w-3"
                   />
                 </div>
                 <span
-                  class="text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-widest"
+                  class="shell-label"
                 >
                   Select SIM Card
                 </span>
               </div>
               <button
                 onclick={toggleSimSelector}
-                class="p-1 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-md transition-colors"
+                class="flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-200 hover:bg-black/5 dark:hover:bg-white/5"
               >
                 <Icon
                   icon="carbon:close"
-                  class="w-3.5 h-3.5 text-gray-500 dark:text-gray-400"
+                  class="h-3.5 w-3.5"
+                  style="color: var(--text-muted);"
                 />
               </button>
             </div>
           </div>
 
-          <!-- 搜索框 -->
           <div
-            class="px-3 py-3 bg-gray-50/50 dark:bg-zinc-800/50 border-b border-gray-200 dark:border-zinc-700"
+            class="border-b px-3 py-3"
+            style="border-color: var(--line-soft); background: rgba(255,255,255,0.04);"
           >
             <div class="relative">
               <Icon
                 icon="carbon:search"
-                class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500"
+                class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
+                style="color: var(--text-muted);"
               />
               <input
                 type="text"
                 bind:value={searchText}
                 placeholder="Search by name or number..."
-                class="w-full pl-9 pr-3 py-2 bg-white dark:bg-zinc-900 border border-gray-300 dark:border-zinc-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-gray-500 dark:focus:border-zinc-500 hover:border-gray-400 dark:hover:border-zinc-600 transition-all duration-200"
+                class="shell-input h-11 pl-9 pr-3"
               />
             </div>
           </div>
 
-          <!-- SIM 卡列表 -->
-          <div class="max-h-56 overflow-y-auto scrollbar-thin sm:max-h-64">
+          <div class="shell-scrollbar max-h-56 overflow-y-auto sm:max-h-64">
             <div class="py-1">
               {#each filteredSimCards as sim (sim.id)}
                 {@const isSelected = sim.id === selectedSim?.id}
                 <button
                   onclick={() => selectSim(sim)}
-                  class="w-full flex items-center gap-3 px-3 py-2.5 transition-all duration-150 {isSelected
-                    ? 'bg-gray-100 dark:bg-zinc-800'
-                    : 'hover:bg-gray-50 dark:hover:bg-zinc-800/50'}"
+                  class={`flex w-full items-center gap-3 px-3 py-3 text-left transition-all duration-150 ${
+                    isSelected
+                      ? 'bg-[var(--accent-soft)]'
+                      : 'hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
                 >
                   <div
-                    class="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors {isSelected
-                      ? 'bg-gray-900 dark:bg-gray-100'
-                      : 'bg-gray-100 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700'}"
+                    class={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                      isSelected
+                        ? 'bg-[var(--panel-contrast)] text-[var(--paper-strong)]'
+                        : 'border border-[color:var(--line-soft)] bg-[var(--panel-soft)] text-[var(--text-secondary)]'
+                    }`}
                   >
                     <Icon
                       icon={isSelected ? "carbon:checkmark-filled" : "carbon:sim-card"}
-                      class="w-4 h-4 {isSelected
-                        ? 'text-gray-100 dark:text-gray-900'
-                        : 'text-gray-600 dark:text-gray-400'}"
+                      class="h-4 w-4"
                     />
                   </div>
                   <div class="flex-1 text-left">
                     <div
-                      class="text-sm font-medium {isSelected
-                        ? 'text-gray-900 dark:text-gray-100'
-                        : 'text-gray-700 dark:text-gray-300'}"
+                      class="text-sm font-medium"
+                      style={`color: ${isSelected ? 'var(--text-strong)' : 'var(--text-secondary)'}`}
                     >
                       {sim.alias ||
                         sim.phone_number ||
@@ -173,9 +176,8 @@
                     </div>
                     {#if sim.alias && sim.phone_number}
                       <div
-                        class="text-xs {isSelected
-                          ? 'text-gray-600 dark:text-gray-400'
-                          : 'text-gray-500 dark:text-gray-500'} font-mono"
+                        class="text-xs font-mono"
+                        style={`color: ${isSelected ? 'var(--text-secondary)' : 'var(--text-muted)'}`}
                       >
                         {sim.phone_number}
                       </div>
@@ -183,9 +185,10 @@
                   </div>
                   {#if isSelected}
                     <div class="flex items-center gap-1.5">
-                      <div class="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                      <span class="shell-status-dot"></span>
                       <span
-                        class="text-xs font-medium text-gray-600 dark:text-gray-400"
+                        class="text-xs font-medium"
+                        style="color: var(--text-muted);"
                       >
                         Active
                       </span>
@@ -194,11 +197,12 @@
                 </button>
               {:else}
                 <div
-                  class="py-8 text-center text-sm text-gray-400 dark:text-gray-500"
+                  class="py-8 text-center text-sm"
+                  style="color: var(--text-muted);"
                 >
                   <Icon
                     icon="carbon:search-locate-mirror"
-                    class="w-8 h-8 mx-auto mb-2 opacity-50"
+                    class="mx-auto mb-2 h-8 w-8 opacity-50"
                   />
                   No SIM cards found
                 </div>
@@ -211,52 +215,58 @@
 
     <!-- 主按钮 - 始终显示，根据状态改变样式 -->
     <div
-      class="relative bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 transition-all duration-250 ease-out {expandedContent
-        ? 'rounded-b-xl border-t-0 shadow-lg'
-        : 'rounded-xl hover:shadow-sm'}"
+      class={`relative border transition-all duration-250 ease-out ${
+        expandedContent
+          ? 'rounded-b-[26px] border-t-0 shadow-[var(--shadow-strong)]'
+          : 'rounded-[24px]'
+      }`}
+      style="border-color: var(--line-soft); background: var(--panel-strong);"
     >
       {#if expandedContent}
-        <!-- 连接处的填充块 -->
         <div
-          class="absolute top-0 left-0 right-0 h-1 bg-white dark:bg-zinc-900 -mt-[1px]"
+          class="absolute left-0 right-0 top-0 h-1 -mt-[1px]"
+          style="background: var(--panel-strong);"
         ></div>
       {/if}
 
       <button
         onclick={toggleSimSelector}
-        class="w-full flex items-center gap-2.5 px-4 h-12 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors duration-200 {expandedContent
-          ? 'rounded-b-xl'
-          : 'rounded-xl'}"
+        class={`flex h-14 w-full items-center gap-3 px-4 transition-colors duration-200 ${
+          expandedContent
+            ? 'rounded-b-[26px]'
+            : 'rounded-[24px] hover:bg-black/5 dark:hover:bg-white/5'
+        }`}
       >
-        <div class="w-5 h-5 bg-gray-900 dark:bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
+        <div class="shell-icon-badge h-9 w-9 rounded-xl flex-shrink-0">
           <Icon
             icon="carbon:sim-card"
-            class="w-3 h-3 text-gray-100 dark:text-gray-900"
+            class="h-3.5 w-3.5"
           />
         </div>
         {#if selectedSim}
           <span
-            class="flex-1 text-left text-sm font-medium text-gray-800 dark:text-gray-200 truncate"
+            class="flex-1 truncate text-left text-sm font-medium"
+            style="color: var(--text-strong);"
           >
             {selectedSim.alias ||
               selectedSim.phone_number ||
               `SIM ${selectedSim.id.slice(-6)}`}
           </span>
           <div class="flex items-center gap-1.5">
-            <div class="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-           
+            <span class="shell-status-dot"></span>
           </div>
         {:else}
           <span
-            class="flex-1 text-left text-sm text-gray-500 dark:text-gray-400"
+            class="flex-1 text-left text-sm"
+            style="color: var(--text-muted);"
           >
             Select SIM
           </span>
         {/if}
         <Icon
           icon="carbon:chevron-down"
-          class="w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform duration-300 flex-shrink-0"
-          style="transform: rotate({expandedContent ? '180deg' : '0deg'})"
+          class="h-4 w-4 flex-shrink-0 transition-transform duration-300"
+          style="transform: rotate({expandedContent ? '180deg' : '0deg'}); color: var(--text-muted);"
         />
       </button>
     </div>
@@ -264,23 +274,6 @@
 </div>
 
 <style lang="postcss">
-  /* Refined scrollbar */
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 4px;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-track {
-    @apply bg-gray-100 dark:bg-zinc-800;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    @apply bg-gray-400 dark:bg-zinc-600 rounded-full;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-500 dark:bg-zinc-500;
-  }
-
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }

@@ -117,29 +117,35 @@
 </script>
 
 <Modal {isOpen} {onClose}>
-    <!-- Modal Header -->
     <div
-        class="flex justify-between items-center p-4 sm:p-6 border-b border-gray-200 dark:border-zinc-700"
+        class="flex items-center justify-between gap-4 border-b px-5 py-3 sm:px-6"
+        style="border-color: var(--line-soft);"
     >
         <div class="flex items-center gap-3">
-            <div class="w-8 h-8 bg-gray-900 dark:bg-gray-100 rounded-lg flex items-center justify-center">
-                <Icon icon="carbon:sim-card" class="w-4 h-4 text-gray-100 dark:text-gray-900" />
+            <div class="shell-icon-badge">
+                <Icon icon="carbon:sim-card" class="h-4 w-4" />
             </div>
-            <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-100">
-                SIM Card Information
-            </h2>
+            <div>
+                <p class="shell-label">Device Detail</p>
+                <h2 class="shell-heading text-[1.75rem] font-semibold leading-none">
+                    SIM Card Information
+                </h2>
+            </div>
         </div>
-        <button
-            class="p-2 rounded-lg bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-gray-400
-                   transition-colors duration-200 hover:bg-gray-200 dark:hover:bg-zinc-700
-                   hover:text-gray-800 dark:hover:text-gray-200"
-            onclick={() => onClose()}
-        >
-            <Icon icon="carbon:close" class="w-5 h-5" />
-        </button>
+
+        <div class="flex items-center gap-3">
+            <span class="shell-chip shell-chip-muted">
+                {$simCards.length} SIM{$simCards.length === 1 ? '' : 's'}
+            </span>
+            <button
+                class="shell-button h-10 w-10 px-0"
+                onclick={() => onClose()}
+            >
+                <Icon icon="carbon:close" class="h-5 w-5" />
+            </button>
+        </div>
     </div>
 
-    <!-- Tab Headers -->
     <SimCardTabs
         simCards={$simCards}
         {activeSimId}
@@ -147,8 +153,7 @@
         getDisplayName={getSimDisplayName}
     />
 
-    <!-- Tab Content -->
-    <div class="flex-1 overflow-auto p-4 sm:p-6">
+    <div class="shell-scrollbar flex-1 overflow-auto px-4 py-4 sm:px-6 sm:py-5">
         <SimCardTabContent
             simCard={activeSimCard}
             simInfo={activeSimInfo}

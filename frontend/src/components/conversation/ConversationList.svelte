@@ -69,8 +69,15 @@
     const existingNewMessage = $conversations.find(conv => conv.contact.new === true);
     
     if (existingNewMessage) {
-      // Switch to the existing new message
-      changeCurrentConversation(existingNewMessage.contact);
+      if ($currentContact?.id !== existingNewMessage.contact.id) {
+        changeCurrentConversation(existingNewMessage.contact);
+      } else {
+        window.dispatchEvent(
+          new CustomEvent("open-new-recipient-dialog", {
+            detail: { reset: true },
+          }),
+        );
+      }
       onConversationSelect();
       return;
     }
@@ -146,7 +153,7 @@
   </div>
 
   <div class="min-h-0 flex-1 overflow-hidden">
-    <div class="shell-scrollbar h-full overflow-y-auto pr-1">
+    <div class="conversation-scroll-region shell-scrollbar h-full overflow-y-auto pr-1">
       <div class="space-y-1.5 pb-2">
         {#if $conversationLoading}
           {#each Array(5) as _}
@@ -163,6 +170,9 @@
         {:else}
           {#each filteredConversations as conversation (conversation.contact.id)}
             {@const isCurrent = $currentContact?.id === conversation.contact.id}
+            {@const hasPreviewContent = Boolean(
+              conversation.sms_preview?.message || conversation.sms_preview?.sim_id
+            )}
             <div
               animate:flip={{ duration: 300, easing: cubicOut }}
               transition:fade={{ duration: 200 }}
@@ -179,13 +189,24 @@
               <div
                 class={`group relative overflow-hidden rounded-[20px] border px-2.5 py-2 transition-all duration-200 ${
                   isCurrent
-                    ? 'border-[color:var(--line-strong)] bg-[var(--paper-strong)] shadow-[var(--shadow-strong)] scale-[1.01]'
+                    ? 'border-[color:var(--accent-copper)] bg-[var(--paper-strong)] shadow-[var(--shadow-strong)]'
                     : 'border-transparent hover:border-[color:var(--line-soft)] hover:bg-[var(--panel-soft)]'
                 }`}
               >
+                {#if isCurrent}
+                  <div
+                    class="pointer-events-none absolute inset-[1px] rounded-[18px] border"
+                    style="border-color: rgba(171, 113, 65, 0.2);"
+                  ></div>
+                  <div
+                    class="pointer-events-none absolute inset-x-0 top-0 h-10"
+                    style="background: linear-gradient(180deg, rgba(171, 113, 65, 0.08), transparent);"
+                  ></div>
+                {/if}
+
                 <div class="flex items-center gap-2.5">
                   <div class="relative flex-shrink-0">
-                    <div class={`flex h-10 w-10 items-center justify-center rounded-[18px] transition-all duration-200 ${isCurrent ? 'bg-[var(--ink-strong)] text-[var(--paper-strong)] shadow-[var(--shadow-strong)]' : 'bg-[var(--panel-strong)] text-[var(--text-secondary)] border border-[color:var(--line-soft)]'}`}>
+                    <div class={`flex h-10 w-10 items-center justify-center rounded-[18px] transition-all duration-200 ${isCurrent ? 'bg-[var(--ink-strong)] text-[var(--paper-strong)] shadow-[var(--shadow-strong)] ring-1 ring-[color:rgba(171,113,65,0.28)]' : 'bg-[var(--panel-strong)] text-[var(--text-secondary)] border border-[color:var(--line-soft)]'}`}>
                       <Icon icon="carbon:user-avatar" class="h-[18px] w-[18px]" />
                     </div>
 
@@ -201,12 +222,14 @@
                   <div class="min-w-0 flex-1">
                     <div class="mb-0.5 flex items-start justify-between gap-2">
                       <div class="min-w-0">
-                        <h3 class="truncate pr-2 text-sm font-semibold" style="color: var(--text-strong);">
-                          {conversation.contact.name}
-                        </h3>
-                        {#if conversation.sms_preview}
+                        <div class="flex items-center gap-2">
+                          <h3 class="truncate pr-2 text-sm font-semibold" style="color: var(--text-strong);">
+                            {conversation.contact.name}
+                          </h3>
+                        </div>
+                        {#if conversation.sms_preview && hasPreviewContent}
                           <span class="mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                            style="background: var(--panel-strong); color: var(--text-secondary);"
+                            style={`background: ${isCurrent ? 'rgba(171, 113, 65, 0.12)' : 'var(--panel-strong)'}; color: ${isCurrent ? 'var(--accent-copper-strong)' : 'var(--text-secondary)'};`}
                           >
                             {getSimCardDisplayName(conversation.sms_preview.sim_id)}
                           </span>
@@ -214,19 +237,25 @@
                       </div>
 
                       {#if !conversation.contact.new && conversation.sms_preview?.timestamp}
-                        <span class="shrink-0 pt-0.5 text-[11px] font-medium" style="color: var(--text-muted);">
+                        <span
+                          class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                          style={`color: ${isCurrent ? 'var(--accent-copper-strong)' : 'var(--text-muted)'}; background: ${isCurrent ? 'rgba(171, 113, 65, 0.1)' : 'transparent'};`}
+                        >
                           {formatDate(conversation.sms_preview.timestamp)}
                         </span>
                       {/if}
                     </div>
 
-                    {#if conversation.sms_preview}
-                      <p class="line-clamp-1 text-[13px] leading-5" style="color: var(--text-secondary);">
+                    {#if conversation.sms_preview && hasPreviewContent}
+                      <p
+                        class="line-clamp-1 text-[13px] leading-5"
+                        style={`color: ${isCurrent ? 'var(--text-strong)' : 'var(--text-secondary)'}; opacity: ${isCurrent ? '0.88' : '1'};`}
+                      >
                         {conversation.sms_preview.message}
                       </p>
                     {:else}
                       <span class="text-[13px] italic" style="color: var(--text-muted);">
-                        {conversation.contact.new ? 'New conversation draft' : 'No messages yet'}
+                        {conversation.contact.new ? 'Recipient draft' : 'No messages yet'}
                       </span>
                     {/if}
                   </div>
@@ -277,6 +306,12 @@
 </div>
 
 <style>
+  .conversation-scroll-region {
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior-y: contain;
+  }
+
   .line-clamp-1 {
     display: -webkit-box;
     -webkit-line-clamp: 1;

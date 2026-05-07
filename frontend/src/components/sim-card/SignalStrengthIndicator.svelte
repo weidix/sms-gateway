@@ -2,7 +2,7 @@
 <script>
     import Icon from "@iconify/svelte";
     
-    let { rssi = 99 } = $props();
+    let { rssi = 99, compact = false } = $props();
     
     function getSignalBars(rssi) {
         if (rssi === 99 || rssi < 2) return 0;
@@ -29,21 +29,37 @@
     const label = $derived(getSignalStrengthLabel(bars));
 </script>
 
-<div class="flex items-center">
-    <Icon icon="mage:chart-up-b" class="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
-    <div class="flex-grow">
-        <div class="text-xs text-gray-500 dark:text-gray-400">Signal Strength</div>
-        <div class="flex items-center">
-            <div class="text-sm font-medium mr-2 dark:text-gray-300">
-                {label}
-            </div>
-            <div class="flex space-x-1">
-                {#each Array(5) as _, i}
-                    <div
-                        class="w-1 h-2 rounded-sm {i < bars ? 'bg-green-500 dark:bg-green-400' : 'bg-gray-300 dark:bg-gray-600'}"
-                    ></div>
-                {/each}
+{#if compact}
+    <div class="flex items-center gap-0.5">
+        {#each Array(5) as _, i}
+            <div
+                class="rounded-full"
+                style={`width: 0.22rem; height: ${0.35 + i * 0.12}rem; background: ${i < bars ? 'var(--accent-copper)' : 'rgba(104, 114, 87, 0.18)'};`}
+            ></div>
+        {/each}
+    </div>
+{:else}
+    <div class="shell-data-row rounded-[20px] border px-4 py-3"
+        style="border-color: var(--line-soft); background: var(--panel-soft);"
+    >
+        <div class="shell-icon-badge-muted h-10 w-10 rounded-xl">
+            <Icon icon="mage:chart-up-b" class="h-4 w-4" />
+        </div>
+        <div class="flex-grow">
+            <div class="shell-data-label">Signal Strength</div>
+            <div class="mt-1 flex items-center gap-3">
+                <div class="text-sm font-medium" style="color: var(--text-strong);">
+                    {label}
+                </div>
+                <div class="flex items-end gap-1">
+                    {#each Array(5) as _, i}
+                        <div
+                            class="rounded-full"
+                            style={`width: 0.28rem; height: ${0.5 + i * 0.18}rem; background: ${i < bars ? 'var(--accent-copper)' : 'rgba(104, 114, 87, 0.18)'};`}
+                        ></div>
+                    {/each}
+                </div>
             </div>
         </div>
     </div>
-</div>
+{/if}

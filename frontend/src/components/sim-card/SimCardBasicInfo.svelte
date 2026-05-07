@@ -22,11 +22,19 @@
     }
 </script>
 
-<div class="space-y-4">
-    <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600 pb-2">
-        Basic Information
-    </h4>
-    
+<div class="shell-data-card space-y-4">
+    <div class="flex items-center justify-between">
+        <div>
+            <p class="shell-label">Profile</p>
+            <h4 class="shell-heading mt-1 text-xl font-semibold">
+                Basic Information
+            </h4>
+        </div>
+        <div class="shell-icon-badge-muted h-10 w-10 rounded-xl">
+            <Icon icon="mage:phone" class="h-4 w-4" />
+        </div>
+    </div>
+
     <EditableField
         value={simCard.phone_number}
         icon="mage:phone"
@@ -34,7 +42,7 @@
         placeholder="Not set"
         onSave={onUpdatePhone}
     />
-    
+
     <EditableField
         value={simCard.alias}
         icon="mage:tag"
@@ -42,22 +50,30 @@
         placeholder="Not set"
         onSave={onUpdateAlias}
     />
-    
-    <div class="flex items-center">
-        <Icon icon="mage:globe" class="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
+
+    <div class="shell-data-row rounded-[20px] border px-4 py-3"
+        style="border-color: var(--line-soft); background: var(--panel-soft);"
+    >
+        <div class="shell-icon-badge-muted h-10 w-10 rounded-xl">
+            <Icon icon="mage:globe" class="h-4 w-4" />
+        </div>
         <div>
-            <div class="text-xs text-gray-500 dark:text-gray-400">Network Status</div>
-            <div class="text-sm font-medium dark:text-gray-300">
+            <div class="shell-data-label">Network Status</div>
+            <div class="mt-1 text-sm font-medium" style="color: var(--text-strong);">
                 {simInfo?.operator_info?.registration_status ? getStatusDescription(simInfo.operator_info.registration_status) : 'Unknown'}
             </div>
         </div>
     </div>
-    
-    <div class="flex items-center">
-        <Icon icon="mage:building-b" class="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
+
+    <div class="shell-data-row rounded-[20px] border px-4 py-3"
+        style="border-color: var(--line-soft); background: var(--panel-soft);"
+    >
+        <div class="shell-icon-badge-muted h-10 w-10 rounded-xl">
+            <Icon icon="mage:building-b" class="h-4 w-4" />
+        </div>
         <div>
-            <div class="text-xs text-gray-500 dark:text-gray-400">Operator</div>
-            <div class="text-sm font-medium dark:text-gray-300">
+            <div class="shell-data-label">Operator</div>
+            <div class="mt-1 text-sm font-medium" style="color: var(--text-strong);">
                 {simInfo?.operator_info?.operator_name || 'Unknown'}
             </div>
         </div>

@@ -14,7 +14,7 @@
         },
         recovering: {
             label: "Recovering",
-            badgeClass: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+            badgeClass: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
         },
         critical: {
             label: "Critical",
@@ -89,11 +89,14 @@
 </script>
 
 {#if hasAnyHealthData}
-    <div class="border border-gray-200 dark:border-zinc-700 rounded-lg p-4 sm:p-5 space-y-4 bg-white dark:bg-zinc-900/30">
+    <div class="shell-data-card space-y-4">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div class="flex items-center gap-2">
-                <Icon icon="mage:activity" class="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300">Health</h4>
+                <Icon icon="mage:activity" class="h-4 w-4" style="color: var(--text-muted);" />
+                <div>
+                    <p class="shell-label">Health</p>
+                    <h4 class="shell-heading mt-1 text-xl font-semibold">Operational Health</h4>
+                </div>
             </div>
 
             {#if healthBadge}
@@ -103,36 +106,38 @@
             {/if}
         </div>
 
-        <div class="grid gap-4 border-t border-gray-200 pt-4 dark:border-zinc-700 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="grid gap-4 border-t pt-4 sm:grid-cols-2 lg:grid-cols-3"
+            style="border-color: var(--line-soft);"
+        >
             <div class="text-sm">
-                <div class="text-gray-500 dark:text-gray-400">Current Status</div>
+                <div class="shell-data-label">Current Status</div>
                 <div class="mt-1">
                     {#if healthBadge}
-                        <span class="font-medium text-gray-800 dark:text-gray-200">{healthBadge.label}</span>
+                        <span class="font-medium" style="color: var(--text-strong);">{healthBadge.label}</span>
                     {:else}
-                        <span class="font-medium text-gray-700 dark:text-gray-300">Unavailable</span>
+                        <span class="font-medium" style="color: var(--text-secondary);">Unavailable</span>
                     {/if}
                 </div>
             </div>
 
             <div class="text-sm">
-                <div class="text-gray-500 dark:text-gray-400">Consecutive Failures</div>
-                <div class="mt-1 font-medium text-gray-800 dark:text-gray-200">
+                <div class="shell-data-label">Consecutive Failures</div>
+                <div class="mt-1 font-medium" style="color: var(--text-strong);">
                     {consecutiveFailures ?? "Unavailable"}
                 </div>
             </div>
 
             <div class="text-sm sm:col-span-2 lg:col-span-3">
-                <div class="text-gray-500 dark:text-gray-400">Failure Reasons</div>
+                <div class="shell-data-label">Failure Reasons</div>
                 <div class="mt-1">
                     {#if failureReasons === null}
-                        <span class="font-medium text-gray-700 dark:text-gray-300">Unavailable</span>
+                        <span class="font-medium" style="color: var(--text-secondary);">Unavailable</span>
                     {:else if failureReasons.length === 0}
-                        <span class="font-medium text-gray-700 dark:text-gray-300">None</span>
+                        <span class="font-medium" style="color: var(--text-secondary);">None</span>
                     {:else}
                         <div class="flex flex-wrap gap-2">
                             {#each failureReasons as reason}
-                                <span class="inline-flex items-center rounded-full bg-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-zinc-800 dark:text-gray-300">
+                                <span class="shell-chip shell-chip-warning">
                                     {formatLabel(reason)}
                                 </span>
                             {/each}
@@ -142,22 +147,22 @@
             </div>
 
             <div class="text-sm">
-                <div class="text-gray-500 dark:text-gray-400">Last Successful Probe</div>
-                <div class="mt-1 font-medium text-gray-800 dark:text-gray-200">
+                <div class="shell-data-label">Last Successful Probe</div>
+                <div class="mt-1 font-medium" style="color: var(--text-strong);">
                     {formatTimestamp(lastSuccessfulProbe)}
                 </div>
             </div>
 
             <div class="text-sm">
-                <div class="text-gray-500 dark:text-gray-400">Last Recovery Action</div>
-                <div class="mt-1 font-medium text-gray-800 dark:text-gray-200">
+                <div class="shell-data-label">Last Recovery Action</div>
+                <div class="mt-1 font-medium" style="color: var(--text-strong);">
                     {formatLabel(lastRecoveryAction)}
                 </div>
             </div>
 
             <div class="text-sm">
-                <div class="text-gray-500 dark:text-gray-400">Last Recovery Time</div>
-                <div class="mt-1 font-medium text-gray-800 dark:text-gray-200">
+                <div class="shell-data-label">Last Recovery Time</div>
+                <div class="mt-1 font-medium" style="color: var(--text-strong);">
                     {formatTimestamp(lastRecoveryTime)}
                 </div>
             </div>

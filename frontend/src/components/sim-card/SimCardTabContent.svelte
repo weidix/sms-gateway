@@ -115,106 +115,102 @@
         in:fly={{ x: 20, duration: 250, easing: cubicOut }}
         out:fade={{ duration: 150 }}
     >
-        <!-- SIM Card Header - Always visible -->
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-gray-900 dark:bg-gray-100 rounded-lg flex items-center justify-center">
-                    <Icon
-                        icon="carbon:sim-card"
-                        class="w-5 h-5 text-gray-100 dark:text-gray-900"
-                    />
+        <div class="shell-card-compact mb-6 p-5 sm:p-6">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="shell-icon-badge h-12 w-12 rounded-2xl">
+                        <Icon
+                            icon="carbon:sim-card"
+                            class="h-5 w-5"
+                        />
+                    </div>
+                    <div>
+                        <p class="shell-label">Active Device</p>
+                        <h3
+                            class="shell-heading mt-1 text-2xl font-semibold"
+                        >
+                            {getDisplayName(simCard)}
+                        </h3>
+                        <p class="mt-2 text-sm font-mono" style="color: var(--text-muted);">
+                            IMSI: {simCard.imsi}
+                        </p>
+                    </div>
                 </div>
-                <div>
-                    <h3
-                        class="text-lg font-semibold text-gray-800 dark:text-gray-100"
-                    >
-                        {getDisplayName(simCard)}
-                    </h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 font-mono">
-                        IMSI: {simCard.imsi}
-                    </p>
-                </div>
-            </div>
 
-            <div class="flex items-center gap-2">
-                <button
-                    class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-zinc-700
-                           bg-white dark:bg-zinc-900 text-gray-700 dark:text-gray-200 text-sm font-medium
-                           hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors duration-200"
-                    onclick={openAtDebug}
-                    title="Open AT debug"
-                >
-                    <Icon icon="carbon:terminal" class="w-4 h-4" />
-                    <span>AT Debug</span>
-                </button>
-                <button
-                    class="p-2 rounded-lg bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-gray-400
-                           hover:bg-gray-200 dark:hover:bg-zinc-700 hover:text-gray-800 dark:hover:text-gray-200
-                           transition-colors duration-200 {isRefreshing ? 'cursor-not-allowed opacity-75' : ''}"
-                    onclick={handleRefresh}
-                    title="Refresh SIM info"
-                    disabled={isRefreshing}
-                >
-                    <Icon
-                        icon="carbon:restart"
-                        class="w-4 h-4 {isRefreshing ? 'animate-spin' : ''}"
-                    />
-                </button>
-                {#if simInfo?.model_info?.model}
-                    <span
-                        class="px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-gray-100 dark:text-gray-900 text-xs font-medium rounded-lg"
+                <div class="flex flex-wrap items-center gap-2">
+                    <button
+                        class="shell-button"
+                        onclick={openAtDebug}
+                        title="Open AT debug"
                     >
-                        {simInfo.model_info.model}
-                    </span>
-                {/if}
+                        <Icon icon="carbon:terminal" class="h-4 w-4" />
+                        <span>AT Debug</span>
+                    </button>
+                    <button
+                        class={`shell-button h-11 w-11 px-0 ${isRefreshing ? 'cursor-not-allowed opacity-75' : ''}`}
+                        onclick={handleRefresh}
+                        title="Refresh SIM info"
+                        disabled={isRefreshing}
+                    >
+                        <Icon
+                            icon="carbon:restart"
+                            class={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}
+                        />
+                    </button>
+                    {#if simInfo?.model_info?.model}
+                        <span class="shell-chip">
+                            {simInfo.model_info.model}
+                        </span>
+                    {/if}
+                </div>
             </div>
         </div>
         
-        <!-- SIM Information Content -->
         <div class="overflow-y-auto max-h-[60vh] sm:max-h-none">
             {#if showSkeleton || (isLoading && !simInfo) || isRefreshing}
-                <!-- Skeleton loading state -->
                 <div
                     class="space-y-4 lg:space-y-6 min-h-[18rem]"
                     in:fade={{ duration: 200 }}
                 >
                     <div class="w-full">
-                        <div class="border border-gray-200 dark:border-zinc-700 rounded-lg p-4 sm:p-5 space-y-4 bg-white dark:bg-zinc-900/30">
+                        <div class="shell-card-muted space-y-4 p-4 sm:p-5">
                             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                 <div class="flex items-center gap-2">
-                                    <div class="w-4 h-4 bg-gray-300 dark:bg-gray-600 rounded animate-pulse"></div>
-                                    <div class="h-5 bg-gray-300 dark:bg-gray-600 rounded w-16 animate-pulse"></div>
+                                    <div class="h-4 w-4 animate-pulse rounded bg-black/10 dark:bg-white/10"></div>
+                                    <div class="h-5 w-16 animate-pulse rounded bg-black/10 dark:bg-white/10"></div>
                                 </div>
-                                <div class="h-6 bg-gray-300 dark:bg-gray-600 rounded-full w-24 animate-pulse"></div>
+                                <div class="h-6 w-24 animate-pulse rounded-full bg-black/10 dark:bg-white/10"></div>
                             </div>
 
-                            <div class="grid gap-4 border-t border-gray-200 pt-4 dark:border-zinc-700 sm:grid-cols-2 lg:grid-cols-3">
+                            <div class="grid gap-4 border-t pt-4 sm:grid-cols-2 lg:grid-cols-3"
+                                style="border-color: var(--line-soft);"
+                            >
                                 <div class="space-y-2">
-                                    <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-24 animate-pulse"></div>
-                                    <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-20 animate-pulse"></div>
+                                    <div class="h-3 w-24 animate-pulse rounded bg-black/10 dark:bg-white/10"></div>
+                                    <div class="h-4 w-20 animate-pulse rounded bg-black/10 dark:bg-white/10"></div>
                                 </div>
                                 <div class="space-y-2">
-                                    <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-28 animate-pulse"></div>
-                                    <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-10 animate-pulse"></div>
+                                    <div class="h-3 w-28 animate-pulse rounded bg-black/10 dark:bg-white/10"></div>
+                                    <div class="h-4 w-10 animate-pulse rounded bg-black/10 dark:bg-white/10"></div>
                                 </div>
                                 <div class="space-y-2 sm:col-span-2 lg:col-span-3">
-                                    <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-24 animate-pulse"></div>
+                                    <div class="h-3 w-24 animate-pulse rounded bg-black/10 dark:bg-white/10"></div>
                                     <div class="flex flex-wrap gap-2">
-                                        <div class="h-6 bg-gray-300 dark:bg-gray-600 rounded-full w-24 animate-pulse"></div>
-                                        <div class="h-6 bg-gray-300 dark:bg-gray-600 rounded-full w-28 animate-pulse"></div>
+                                        <div class="h-6 w-24 animate-pulse rounded-full bg-black/10 dark:bg-white/10"></div>
+                                        <div class="h-6 w-28 animate-pulse rounded-full bg-black/10 dark:bg-white/10"></div>
                                     </div>
                                 </div>
                                 <div class="space-y-2">
-                                    <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-32 animate-pulse"></div>
-                                    <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-36 animate-pulse"></div>
+                                    <div class="h-3 w-32 animate-pulse rounded bg-black/10 dark:bg-white/10"></div>
+                                    <div class="h-4 w-36 animate-pulse rounded bg-black/10 dark:bg-white/10"></div>
                                 </div>
                                 <div class="space-y-2">
-                                    <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-32 animate-pulse"></div>
-                                    <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-28 animate-pulse"></div>
+                                    <div class="h-3 w-32 animate-pulse rounded bg-black/10 dark:bg-white/10"></div>
+                                    <div class="h-4 w-28 animate-pulse rounded bg-black/10 dark:bg-white/10"></div>
                                 </div>
                                 <div class="space-y-2">
-                                    <div class="h-3 bg-gray-300 dark:bg-gray-600 rounded w-28 animate-pulse"></div>
-                                    <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-36 animate-pulse"></div>
+                                    <div class="h-3 w-28 animate-pulse rounded bg-black/10 dark:bg-white/10"></div>
+                                    <div class="h-4 w-36 animate-pulse rounded bg-black/10 dark:bg-white/10"></div>
                                 </div>
                             </div>
                         </div>
@@ -226,7 +222,6 @@
                     </div>
                 </div>
             {:else if simInfo}
-                <!-- Actual content -->
                 <div
                     class="space-y-4 lg:space-y-6"
                     in:fade={{ delay: 100, duration: 300 }}
@@ -244,7 +239,6 @@
                     </div>
                 </div>
             {:else}
-                <!-- Error state -->
                 <EmptyState
                     title="No Data Available"
                     description="Unable to load information for this SIM card."

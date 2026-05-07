@@ -10,11 +10,12 @@
 
 {#if show}
   <div
-    class="h-full flex justify-center items-center absolute inset-0 z-9"
+    class="absolute inset-0 z-10 flex items-center justify-center"
     transition:fade={{ duration }}
   >
     <div
-      class="inline-block animate-spin rounded-full border-2 border-t-gray-800 border-gray-300 {size}"
+      class="inline-block animate-spin rounded-full border-2 {size}"
+      style="border-color: rgba(104, 114, 87, 0.18); border-top-color: var(--accent-copper);"
     ></div>
   </div>
 {/if}

@@ -4,7 +4,6 @@
   import MessageList from "../components/message/MessageList.svelte";
   import SimCardModal from "../components/sim-card/SimCardModal.svelte";
   import Icon from "@iconify/svelte";
-  import { currentContact } from "../stores/conversation";
 
   let modemInfoCardOpen = $state(false);
   let isSidebarOpen = $state(false);
@@ -39,10 +38,10 @@
   }
 </script>
 
-<div class="flex h-dvh w-screen flex-col lg:flex-row font-sans dark:bg-zinc-900 dark:text-white relative">
+<div class="relative flex h-full w-full overflow-hidden p-2.5 sm:p-3.5 lg:gap-3.5">
   {#if isSidebarOpen}
     <div
-      class="fixed inset-0 bg-black/40 backdrop-blur-sm z-20 lg:hidden"
+      class="fixed inset-0 z-20 bg-black/30 backdrop-blur-md lg:hidden"
       role="button"
       tabindex="0"
       aria-label="Close sidebar"
@@ -52,7 +51,7 @@
   {/if}
 
   <div
-    class={`fixed inset-y-0 left-0 z-30 transform transition-transform duration-300 ease-out lg:relative lg:translate-x-0 lg:w-80 w-[84vw] max-w-sm
+    class={`fixed inset-y-2.5 left-0 z-30 w-screen max-w-sm transform transition-transform duration-300 ease-out sm:left-2.5 sm:w-[calc(100vw-1.25rem)] lg:static lg:w-[20rem] lg:translate-x-0
       ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
   >
     <Sidebar 
@@ -61,31 +60,29 @@
       onConversationSelect={closeSidebar}
     />
   </div>
-  
-  <!-- 主内容区域 -->
-  <div class="flex-1 bg-white dark:bg-zinc-900 flex flex-col">
-    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200/70 dark:border-zinc-800/70 lg:hidden sticky top-0 z-10 bg-white/90 dark:bg-zinc-900/90">
+
+  <div class="shell-card relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+    <div class="flex items-center justify-between border-b px-4 py-2.5 lg:hidden"
+      style="border-color: var(--line-soft); background: linear-gradient(180deg, var(--panel-strong), rgba(255,255,255,0));"
+    >
       <button
-        class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-zinc-700 text-slate-800 dark:text-gray-100 bg-white shadow-sm dark:bg-zinc-800 active:scale-[0.98] transition"
+        class="shell-button h-10 px-3 py-2"
         onclick={toggleSidebar}
       >
-        <Icon icon={isSidebarOpen ? "carbon:close" : "carbon:menu"} class="w-5 h-5" />
+        <Icon icon={isSidebarOpen ? "carbon:close" : "carbon:menu"} class="h-5 w-5" />
         <span class="text-sm">{isSidebarOpen ? 'Close' : 'Conversations'}</span>
       </button>
-      <div class="flex items-center gap-3">
-        <p class="text-sm text-gray-700 dark:text-gray-200 truncate max-w-[140px]">
-          {$currentContact ? $currentContact.name : 'Messages'}
-        </p>
-        <button
-          class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 dark:border-zinc-700 text-slate-800 dark:text-gray-100 bg-white shadow-sm dark:bg-zinc-800 active:scale-[0.98] transition"
-          onclick={handleSimCardClick}
-          aria-label="Open SIM details"
-        >
-          <Icon icon="carbon:sim-card" class="w-5 h-5" />
-        </button>
-      </div>
+
+      <button
+        class="shell-button h-10 w-10 px-0"
+        onclick={handleSimCardClick}
+        aria-label="Open SIM details"
+      >
+        <Icon icon="carbon:sim-card" class="h-5 w-5" />
+      </button>
     </div>
-    <div class="flex-1 bg-white dark:bg-zinc-900">
+
+    <div class="flex min-h-0 flex-1 flex-col">
       <MessageList />
     </div>
   </div>

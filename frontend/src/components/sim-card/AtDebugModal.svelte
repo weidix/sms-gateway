@@ -127,55 +127,51 @@
     {isOpen}
     onClose={closeModal}
     maxWidth="max-w-3xl"
-    overlayClass="z-[60] bg-zinc-100/60 dark:bg-zinc-950/50"
+    overlayClass="z-[60]"
 >
-    <div class="flex items-center justify-between gap-4 p-4 sm:p-5 border-b border-gray-200 dark:border-zinc-700">
+    <div class="flex items-center justify-between gap-4 border-b p-4 sm:p-5"
+        style="border-color: var(--line-soft);"
+    >
         <div class="flex items-center gap-3 min-w-0">
-            <div class="w-9 h-9 rounded-lg bg-gray-900 dark:bg-gray-100 flex items-center justify-center shrink-0">
-                <span class="text-xs font-semibold text-gray-100 dark:text-gray-900">AT</span>
+            <div class="shell-icon-badge h-10 w-10 rounded-xl shrink-0">
+                <span class="text-xs font-semibold">AT</span>
             </div>
             <div class="min-w-0">
-                <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                <p class="shell-label">Raw Transport</p>
+                <h3 class="shell-heading mt-1 text-2xl font-semibold">
                     AT Debug
                 </h3>
-                <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
+                <p class="text-xs sm:text-sm truncate" style="color: var(--text-muted);">
                     {simLabel} · {portLabel || "Unknown port"} · single run output
                 </p>
             </div>
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
-            <span class="px-3 py-1 rounded-full bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 text-xs font-semibold">
+            <span class="shell-chip">
                 Raw Command
             </span>
             <button
-                class="p-2 rounded-lg bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-gray-400
-                       transition-colors duration-200 hover:bg-gray-200 dark:hover:bg-zinc-700
-                       hover:text-gray-800 dark:hover:text-gray-200"
+                class="shell-button h-11 w-11 px-0"
                 onclick={closeModal}
                 aria-label="Close AT debug"
             >
-                <Icon icon="carbon:close" class="w-5 h-5" />
+                <Icon icon="carbon:close" class="h-5 w-5" />
             </button>
         </div>
     </div>
 
-    <div class="p-4 sm:p-5 border-b border-gray-200 dark:border-zinc-700 bg-gray-50/80 dark:bg-zinc-900/40">
+    <div class="border-b p-4 sm:p-5" style="border-color: var(--line-soft); background: var(--panel-soft);">
         <div class="flex items-center gap-3">
             <input
                 type="text"
                 bind:value={command}
                 onkeydown={handleKeydown}
                 placeholder="Enter raw AT command"
-                class="flex-1 h-11 rounded-xl border border-gray-300 dark:border-zinc-600
-                       bg-white dark:bg-zinc-800 px-4 text-sm text-gray-900 dark:text-gray-100
-                       font-mono outline-none transition-colors duration-200
-                       focus:border-gray-500 dark:focus:border-zinc-500"
+                class="shell-input h-11 flex-1 px-4 font-mono"
             />
             <button
-                class="h-11 px-5 rounded-xl bg-gray-900 dark:bg-gray-100 text-gray-100 dark:text-gray-900
-                       font-semibold text-sm transition-all duration-200 hover:bg-gray-800 dark:hover:bg-gray-200
-                       active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                class={`shell-button h-11 px-5 ${isRunning || !command.trim() ? 'cursor-not-allowed opacity-50' : 'shell-button-primary'}`}
                 onclick={handleSubmit}
                 disabled={isRunning || !command.trim()}
             >
@@ -186,9 +182,9 @@
 
     <div class="flex-1 min-h-0 p-4 sm:p-5 flex flex-col gap-3">
         <div class="flex items-center justify-between gap-3">
-            <div class="text-sm text-gray-500 dark:text-gray-400">Current execution</div>
+            <div class="text-sm" style="color: var(--text-muted);">Current execution</div>
             {#if execution}
-                <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <div class="flex items-center gap-2 text-xs" style="color: var(--text-muted);">
                     <span class={`px-2.5 py-1 rounded-full font-semibold ${statusClasses(execution.status)}`}>
                         {formatStatus(execution.status)}
                     </span>
@@ -199,9 +195,9 @@
         </div>
 
         <div
-            class="flex-1 min-h-[16rem] rounded-2xl border border-gray-200 dark:border-zinc-700
-                   bg-white dark:bg-zinc-900 px-4 py-3 font-mono text-sm text-gray-700 dark:text-gray-200
+            class="shell-scrollbar flex-1 min-h-[16rem] rounded-[24px] border px-4 py-3 font-mono text-sm
                    whitespace-pre-wrap break-words overflow-auto leading-7"
+            style="border-color: var(--line-soft); background: var(--panel-soft); color: var(--text-secondary);"
         >
             {#if isRunning}
                 Executing...

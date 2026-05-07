@@ -11,19 +11,21 @@
     } = $props();
 </script>
 
-<div class="flex flex-col items-center justify-center py-12 text-center">
-    <Icon {icon} class="w-12 h-12 text-gray-400 mb-4" />
-    <h3 class="text-lg font-medium text-gray-500 dark:text-gray-400 mb-2">
+<div class="shell-card-muted flex flex-col items-center justify-center px-6 py-12 text-center">
+    <div class="shell-icon-badge-muted mb-4 h-14 w-14 rounded-3xl">
+        <Icon {icon} class="h-7 w-7" />
+    </div>
+    <h3 class="shell-heading text-xl font-semibold">
         {title}
     </h3>
     {#if description}
-        <p class="text-sm text-gray-400 dark:text-gray-500 mb-4">
+        <p class="mt-2 text-sm leading-6" style="color: var(--text-muted);">
             {description}
         </p>
     {/if}
     {#if showRetry}
         <button
-            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            class="shell-button shell-button-primary mt-5"
             onclick={() => {
                 onRetry();
             }}
