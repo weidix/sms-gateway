@@ -2,7 +2,6 @@ use std::collections::BTreeSet;
 
 use chrono::{DateTime, Utc};
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum HealthStatus {
     Healthy,
@@ -11,7 +10,18 @@ pub enum HealthStatus {
     Critical,
 }
 
-#[allow(dead_code)]
+impl HealthStatus {
+    /// Returns the stable name used by API and webhook payloads.
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Healthy => "healthy",
+            Self::Degraded => "degraded",
+            Self::Recovering => "recovering",
+            Self::Critical => "critical",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FailureReason {
     AtUnreachable,
@@ -22,7 +32,20 @@ pub enum FailureReason {
     ReadSmsFailed,
 }
 
-#[allow(dead_code)]
+impl FailureReason {
+    /// Returns the stable name used by API and webhook payloads.
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::AtUnreachable => "at_unreachable",
+            Self::SimNotReady => "sim_not_ready",
+            Self::NetworkNotRegistered => "network_not_registered",
+            Self::SmsStorageUnavailable => "sms_storage_unavailable",
+            Self::SmsStorageFull => "sms_storage_full",
+            Self::ReadSmsFailed => "read_sms_failed",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RecoveryAction {
     ReinitializeModem,
@@ -30,7 +53,17 @@ pub enum RecoveryAction {
     RestartModem,
 }
 
-#[allow(dead_code)]
+impl RecoveryAction {
+    /// Returns the stable name used by API and webhook payloads.
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::ReinitializeModem => "reinitialize_modem",
+            Self::ReapplySmsStorage => "reapply_sms_storage",
+            Self::RestartModem => "restart_modem",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HealthSnapshot {
     pub current_status: HealthStatus,
@@ -42,7 +75,6 @@ pub struct HealthSnapshot {
     pub last_recovery_at: Option<DateTime<Utc>>,
 }
 
-#[allow(dead_code)]
 impl HealthSnapshot {
     pub fn new() -> Self {
         Self {
@@ -170,11 +202,13 @@ impl HealthSnapshot {
         }
     }
 
+    #[cfg(test)]
     pub fn with_status(mut self, status: HealthStatus) -> Self {
         self.current_status = status;
         self
     }
 
+    #[cfg(test)]
     pub fn with_failure_reasons<I>(mut self, reasons: I) -> Self
     where
         I: IntoIterator<Item = FailureReason>,
@@ -191,16 +225,12 @@ impl Default for HealthSnapshot {
 }
 
 #[cfg(test)]
-pub(crate) fn assert_state_machine_moves_to_recovering_at_threshold() {
-    tests::state_machine_moves_to_recovering_at_threshold();
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
     use chrono::TimeZone;
 
-    pub(crate) fn state_machine_moves_to_recovering_at_threshold() {
+    #[test]
+    fn state_machine_moves_to_recovering_at_threshold() {
         let snapshot = HealthSnapshot {
             consecutive_failures: 2,
             ..HealthSnapshot::new()

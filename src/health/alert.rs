@@ -176,53 +176,20 @@ fn build_payload(
     json!({
         "sim_id": sim_id,
         "com_port": com_port,
-        "status": health_status_name(snapshot.current_status),
+        "status": snapshot.current_status.as_str(),
         "failure_reasons": snapshot
             .failure_reasons
             .iter()
             .copied()
-            .map(failure_reason_name)
+            .map(FailureReason::as_str)
             .collect::<Vec<_>>(),
         "consecutive_failures": snapshot.consecutive_failures,
         "timestamp": timestamp.to_rfc3339(),
         "last_probe_at": snapshot.last_probe_at.map(|value| value.to_rfc3339()),
         "last_ok_at": snapshot.last_ok_at.map(|value| value.to_rfc3339()),
-        "last_recovery_action": snapshot.last_recovery_action.map(recovery_action_name),
+        "last_recovery_action": snapshot.last_recovery_action.map(|action| action.as_str()),
         "last_recovery_at": snapshot.last_recovery_at.map(|value| value.to_rfc3339()),
     })
-}
-
-fn health_status_name(status: HealthStatus) -> &'static str {
-    match status {
-        HealthStatus::Healthy => "healthy",
-        HealthStatus::Degraded => "degraded",
-        HealthStatus::Recovering => "recovering",
-        HealthStatus::Critical => "critical",
-    }
-}
-
-fn failure_reason_name(reason: FailureReason) -> &'static str {
-    match reason {
-        FailureReason::AtUnreachable => "at_unreachable",
-        FailureReason::SimNotReady => "sim_not_ready",
-        FailureReason::NetworkNotRegistered => "network_not_registered",
-        FailureReason::SmsStorageUnavailable => "sms_storage_unavailable",
-        FailureReason::SmsStorageFull => "sms_storage_full",
-        FailureReason::ReadSmsFailed => "read_sms_failed",
-    }
-}
-
-fn recovery_action_name(action: crate::health::state::RecoveryAction) -> &'static str {
-    match action {
-        crate::health::state::RecoveryAction::ReinitializeModem => "reinitialize_modem",
-        crate::health::state::RecoveryAction::ReapplySmsStorage => "reapply_sms_storage",
-        crate::health::state::RecoveryAction::RestartModem => "restart_modem",
-    }
-}
-
-#[cfg(test)]
-pub(crate) fn assert_duplicate_status_and_reason_set_does_not_emit_alert() {
-    tests::duplicate_status_and_reason_set_does_not_emit_alert();
 }
 
 #[cfg(test)]
@@ -231,7 +198,8 @@ mod tests {
     use chrono::{TimeZone, Utc};
     use serde_json::Value;
 
-    pub(crate) fn duplicate_status_and_reason_set_does_not_emit_alert() {
+    #[test]
+    fn duplicate_status_and_reason_set_does_not_emit_alert() {
         let first = HealthSnapshot::new().record_failure(3, [FailureReason::AtUnreachable], None);
         let duplicate =
             HealthSnapshot::new().record_failure(3, [FailureReason::AtUnreachable], None);

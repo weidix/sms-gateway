@@ -250,23 +250,6 @@ impl Sms {
         Ok(sms_list)
     }
 
-    pub async fn _update_status(&self, status: SmsStatus) -> Result<()> {
-        let pool = get_pool()?;
-        sqlx::query(
-            r#"
-            UPDATE sms
-            SET status = ?
-            WHERE id = ?
-            "#,
-        )
-        .bind(status as i32)
-        .bind(self.id)
-        .execute(pool)
-        .await?;
-
-        Ok(())
-    }
-
     pub async fn update_status_by_id(id: i64, status: SmsStatus) -> Result<()> {
         let pool = get_pool()?;
         sqlx::query(
@@ -388,42 +371,16 @@ impl Contact {
 }
 
 impl SimCard {
-    /// 1. 根据条件查询
-    pub async fn find_by_conditions(
-        id: Option<&str>,
-        imsi: Option<&str>,
-        alias: Option<&str>,
-        phone_number: Option<&str>,
-    ) -> Result<Vec<Self>> {
+    /// Finds a SIM card by its unique identifier.
+    pub async fn find_by_id(id: &str) -> Result<Option<Self>> {
         let pool = get_pool()?;
-        let mut query = String::from(
-            "SELECT id, imsi, phone_number, alias, created_at, updated_at FROM sim_cards WHERE 1=1",
-        );
-        let mut binds = Vec::new();
-
-        if let Some(id) = id {
-            query.push_str(" AND id = ?");
-            binds.push(id);
-        }
-        if let Some(imsi) = imsi {
-            query.push_str(" AND imsi = ?");
-            binds.push(imsi);
-        }
-        if let Some(alias) = alias {
-            query.push_str(" AND alias = ?");
-            binds.push(alias);
-        }
-        if let Some(phone_number) = phone_number {
-            query.push_str(" AND phone_number = ?");
-            binds.push(phone_number);
-        }
-
-        let mut query_builder = sqlx::query_as::<_, SimCard>(&query);
-        for bind in binds {
-            query_builder = query_builder.bind(bind);
-        }
-
-        Ok(query_builder.fetch_all(pool).await?)
+        Ok(sqlx::query_as::<_, SimCard>(
+            "SELECT id, imsi, phone_number, alias, created_at, updated_at \
+             FROM sim_cards WHERE id = ?",
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?)
     }
 
     /// 2. 更新手机号
@@ -547,9 +504,7 @@ impl SimCard {
         imsi: Option<String>,
         phone_number: Option<String>,
     ) -> Result<Self> {
-        let existing = Self::find_by_conditions(Some(id), None, None, None).await?;
-
-        if let Some(mut sim_card) = existing.into_iter().next() {
+        if let Some(mut sim_card) = Self::find_by_id(id).await? {
             // For existing SIM cards, only update IMSI if changed
             // Never update phone_number - it should only be modified by users
             if sim_card.imsi != imsi {
@@ -594,18 +549,6 @@ impl Conversation {
         Ok(conversations)
     }
 
-    pub async fn _query_unread() -> Result<Vec<Self>> {
-        let pool = get_pool()?;
-
-        let conversations = sqlx::query_as(
-              "SELECT id, name, timestamp, message, status, sim_id FROM v_contacts_with_sim where status = ? ORDER BY timestamp DESC"
-        )
-        .bind(SmsStatus::Unread as i32)
-        .fetch_all(pool)
-        .await?;
-
-        Ok(conversations)
-    }
     pub async fn query_by_contact_ids(contact_ids: &[String]) -> Result<Vec<Self>> {
         let pool = get_pool()?;
 
@@ -626,31 +569,6 @@ impl Conversation {
         let conversations = query_builder.build_query_as().fetch_all(pool).await?;
 
         Ok(conversations)
-    }
-
-    pub async fn _mark_as_read(&self) -> Result<()> {
-        let pool = get_pool()?;
-
-        sqlx::query(
-            r#"
-            UPDATE sms 
-            SET status = ? 
-            WHERE contact_id = ? 
-            AND timestamp = (
-                SELECT timestamp 
-                FROM sms 
-                WHERE contact_id = ? 
-                ORDER BY timestamp DESC 
-                LIMIT 1
-            )"#,
-        )
-        .bind(SmsStatus::Read as i32)
-        .bind(&self.contact.id)
-        .bind(&self.contact.id)
-        .execute(pool)
-        .await?;
-
-        Ok(())
     }
 }
 

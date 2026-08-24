@@ -157,7 +157,8 @@ impl HealthProbe for ModemHealthProbe {
 }
 
 #[cfg(test)]
-pub(crate) fn assert_d_probe_uses_configured_receive_storage_semantics() {
+#[test]
+fn d_probe_uses_configured_receive_storage_semantics() {
     let matching_full = SmsStorageStatus {
         read_storage: "ME".to_string(),
         read_used: 1,

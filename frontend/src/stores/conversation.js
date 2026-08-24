@@ -7,7 +7,6 @@ import { generateUUID } from '../js/uuid';
 export const conversations = writable([]);
 export const currentContact = writable(null);
 export const conversationLoading = writable(false);
-export const sseConnected = writable(false);
 
 export const SmsStatus = {
     Unread: 0,
@@ -45,7 +44,6 @@ const connectSSE = () => {
     eventSource = new EventSourcePolyfill('/api/sms/sse', eventSourceInitDict);
 
     eventSource.onopen = () => {
-        sseConnected.set(true);
         if (reconnectTimeout) {
             clearTimeout(reconnectTimeout);
             reconnectTimeout = null;
@@ -54,7 +52,6 @@ const connectSSE = () => {
 
     eventSource.onerror = (error) => {
         console.error('SSE connection error:', error);
-        sseConnected.set(false);
         if (eventSource) {
             eventSource.close();
         }
@@ -117,19 +114,6 @@ export const initConversation = () => {
     conversationLoading.set(true);
     connectSSE();
 
-    const pendingUpdate = sessionStorage.getItem('pendingContactUpdate');
-    if (pendingUpdate) {
-        try {
-            const { contactId, contactName } = JSON.parse(pendingUpdate);
-            if (contactId && contactName) {
-                sessionStorage.removeItem('pendingContactUpdate');
-            }
-        } catch (e) {
-            console.error('Failed to parse pending contact update:', e);
-            sessionStorage.removeItem('pendingContactUpdate');
-        }
-    }
-
     apiClient.getConversation().then((res) => {
         getStorageValue("currentConversation").then((storageValue) => {
             if (storageValue !== null && storageValue !== undefined && res.data.find((/** @type {{ contact: { id: any; }; }} */ item) => item.contact.id === storageValue.id)) {
@@ -191,21 +175,18 @@ export const changeCurrentConversation = (/** @type {any} */ contact) => {
         });
     }
     currentContact.set(contact);
-    if (contact.new === true) {
-        scrollToConversation(contact.id);
-    }
 }
 
-export const newMessageConcatChange = (/** @type {string} */ conactName) => {
-    if (conactName === "") {
-        conactName = "新信息";
+export const updateDraftRecipientName = (/** @type {string} */ recipientName) => {
+    if (recipientName === "") {
+        recipientName = "新信息";
     }
 
     conversations.update((conversations) => {
         return [{
             contact: {
                 id: get(currentContact)?.id || 0,
-                name: conactName,
+                name: recipientName,
                 new: true,
             },
             sms_preview: {
@@ -223,33 +204,10 @@ export const deleteConversation = (/** @type {string} */ id) => {
     });
 }
 
-export const scrollToConversation = (/** @type {string} */ id) => {
-    setTimeout(() => {
-        const conversationElement = document.getElementById(`conversation-${id}`);
-        if (conversationElement) {
-            const conversationItem = conversationElement.closest('.conversation-item');
-            if (conversationItem) {
-                const scrollContainer = document.querySelector('.absolute.inset-0.overflow-y-auto');
-                if (scrollContainer) {
-                    const containerRect = scrollContainer.getBoundingClientRect();
-                    const elementRect = conversationItem.getBoundingClientRect();
-                    const relativeTop = elementRect.top - containerRect.top + scrollContainer.scrollTop;
-
-                    scrollContainer.scrollTo({
-                        top: relativeTop,
-                        behavior: 'smooth'
-                    });
-                }
-            }
-        }
-    }, 100);
-}
-
-export const conactAddFinish = (/** @type {string} */ name) => {
+export const selectRecipientConversation = (/** @type {string} */ name) => {
     const conversation = get(conversations).find((/** @type {{ contact: { id: any; name: any; new: any; }; }} */ item) => item.contact.name === name && !item.contact.new);
     if (conversation) {
         currentContact.set(conversation.contact);
-        scrollToConversation(conversation.contact.id);
         conversations.update((conversations) => {
             return conversations.filter((/** @type {{ contact: { new: any; }; }} */ item) => !item.contact.new);
         });
@@ -327,11 +285,3 @@ export const updateConversationLastMessage = (
         
     });
 };
-
-export const createNewContactName = () => {
-    const timestamp = new Date().getTime();
-    const randomPart = Math.random().toString(36).substring(2, 8);
-    const randomName = `新信息 ${timestamp}-${randomPart}`;
-    return randomName;
-}
-

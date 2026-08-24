@@ -13,7 +13,8 @@ use crate::health::recovery::{RecoveryExecutor, RecoveryPlan, RecoveryStep};
 use crate::health::state::{FailureReason, HealthSnapshot, HealthStatus, RecoveryAction};
 use crate::health::supervisor::HealthSupervisor;
 
-pub(crate) fn assert_default_recovery_plan_is_stable() {
+#[test]
+fn default_recovery_plan_is_stable() {
     assert_eq!(
         RecoveryPlan::default().steps(),
         &[
@@ -26,7 +27,8 @@ pub(crate) fn assert_default_recovery_plan_is_stable() {
     );
 }
 
-pub(crate) async fn assert_unhealthy_snapshot_returns_to_healthy_after_probe_success() {
+#[tokio::test]
+async fn unhealthy_snapshot_returns_to_healthy_after_probe_success() {
     let probe = Arc::new(SequenceProbe::new(
         vec!["sim-1".to_string()],
         [("sim-1", vec![HealthCheckResult::success()])],
@@ -56,7 +58,8 @@ pub(crate) async fn assert_unhealthy_snapshot_returns_to_healthy_after_probe_suc
     assert!(snapshot.last_ok_at.is_some());
 }
 
-pub(crate) async fn assert_only_failing_sim_runs_recovery() {
+#[tokio::test]
+async fn only_failing_sim_runs_recovery() {
     let probe = Arc::new(SequenceProbe::new(
         vec!["sim-a".to_string(), "sim-b".to_string()],
         [
@@ -87,7 +90,8 @@ pub(crate) async fn assert_only_failing_sim_runs_recovery() {
     assert!(healthy.last_recovery_action.is_none());
 }
 
-pub(crate) async fn assert_latest_recovery_action_tracks_last_attempted_step() {
+#[tokio::test]
+async fn latest_recovery_action_tracks_last_attempted_step() {
     let probe = Arc::new(SequenceProbe::new(
         vec!["sim-1".to_string()],
         [(
@@ -113,7 +117,8 @@ pub(crate) async fn assert_latest_recovery_action_tracks_last_attempted_step() {
     );
 }
 
-pub(crate) async fn assert_read_sms_failed_reason_marks_snapshot_unhealthy() {
+#[tokio::test]
+async fn read_sms_failed_reason_marks_snapshot_unhealthy() {
     let probe = Arc::new(SequenceProbe::new(
         vec!["sim-1".to_string()],
         [(
@@ -136,7 +141,8 @@ pub(crate) async fn assert_read_sms_failed_reason_marks_snapshot_unhealthy() {
         .contains(&FailureReason::ReadSmsFailed));
 }
 
-pub(crate) async fn assert_failed_reprobe_after_recovery_becomes_critical() {
+#[tokio::test]
+async fn failed_reprobe_after_recovery_becomes_critical() {
     let probe = Arc::new(SequenceProbe::new(
         vec!["sim-1".to_string()],
         [(
@@ -162,7 +168,8 @@ pub(crate) async fn assert_failed_reprobe_after_recovery_becomes_critical() {
         .contains(&FailureReason::ReadSmsFailed));
 }
 
-pub(crate) async fn assert_other_sims_progress_while_one_sim_waits_in_recovery() {
+#[tokio::test]
+async fn other_sims_progress_while_one_sim_waits_in_recovery() {
     let probe = Arc::new(SequenceProbe::new(
         vec!["sim-a".to_string(), "sim-b".to_string()],
         [
@@ -208,7 +215,8 @@ pub(crate) async fn assert_other_sims_progress_while_one_sim_waits_in_recovery()
     worker.await.expect("expected supervisor worker to finish");
 }
 
-pub(crate) async fn assert_real_supervisor_path_uses_alert_gate() {
+#[tokio::test]
+async fn real_supervisor_path_uses_alert_gate() {
     let probe = Arc::new(SequenceProbe::new(
         vec!["sim-1".to_string()],
         [(
@@ -242,7 +250,8 @@ pub(crate) async fn assert_real_supervisor_path_uses_alert_gate() {
     assert_eq!(emitted[1].1.current_status, HealthStatus::Healthy);
 }
 
-pub(crate) async fn assert_repeated_probe_errors_trigger_recovery_at_threshold() {
+#[tokio::test]
+async fn repeated_probe_errors_trigger_recovery_at_threshold() {
     let probe = Arc::new(SequenceProbe::new(
         vec!["sim-1".to_string()],
         [(
@@ -271,7 +280,8 @@ pub(crate) async fn assert_repeated_probe_errors_trigger_recovery_at_threshold()
     assert_eq!(snapshot.consecutive_failures, 0);
 }
 
-pub(crate) async fn assert_sms_storage_full_does_not_trigger_recovery_plan() {
+#[tokio::test]
+async fn sms_storage_full_does_not_trigger_recovery_plan() {
     let probe = Arc::new(SequenceProbe::new(
         vec!["sim-1".to_string()],
         [(

@@ -8,8 +8,8 @@
     conversationLoading,
     conversations,
     changeCurrentConversation,
-    newMessageConcatChange,
-    conactAddFinish,
+    updateDraftRecipientName,
+    selectRecipientConversation,
     markConversationAsRead,
     SmsStatus,
     updateConversationLastMessage,
@@ -93,7 +93,7 @@
 
   $effect(() => {
     if (!isAddingContact && showNewMessage) {
-      newMessageConcatChange(concatInputText);
+      updateDraftRecipientName(concatInputText);
     }
   });
 
@@ -170,7 +170,7 @@
     if (!trimmed) return;
 
     isAddingContact = true;
-    conactAddFinish(trimmed);
+    selectRecipientConversation(trimmed);
     concatInputText = trimmed;
     if ($currentContact?.new === true) {
       currentContact.set({
@@ -330,10 +330,6 @@
     window.removeEventListener("open-new-recipient-dialog", handleEditRecipient);
   });
 
-  onDestroy(() => {
-    if (loadingTimer) clearTimeout(loadingTimer);
-    clearBottomAlignmentTimer();
-  });
 </script>
 
 <div class="relative flex min-h-0 flex-1 flex-col">

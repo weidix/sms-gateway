@@ -161,7 +161,7 @@ impl ModemManager {
         }
 
         let sim_primary = sim_ids
-            .get(0)
+            .first()
             .cloned()
             .unwrap_or_else(|| "mock_sim_1".to_string());
         let sim_secondary = sim_ids

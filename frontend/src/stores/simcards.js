@@ -5,21 +5,16 @@ import { apiClient } from '../js/api.js';
 export const simCards = writable([]);
 
 // Loading state
-export const simCardsLoading = writable(false);
-
 // Functions to manage SIM cards
 export const simCardActions = {
     // Load all SIM cards
     async loadAll() {
-        simCardsLoading.set(true);
         try {
             const response = await apiClient.getAllSimCards();
             simCards.set(response.data);
         } catch (error) {
             console.error('Failed to load SIM cards:', error);
             simCards.set([]);
-        } finally {
-            simCardsLoading.set(false);
         }
     },
 

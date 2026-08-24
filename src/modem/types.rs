@@ -26,7 +26,6 @@ impl SmsType {
 pub struct ATCommand {
     pub command: String,
     pub response_tx: tokio::sync::oneshot::Sender<Result<String, io::Error>>,
-    pub _priority: u8,
     pub retries: u32,
 }
 
@@ -189,12 +188,6 @@ impl ModemInfo {
 }
 
 #[cfg(test)]
-pub(crate) use tests::{
-    assert_network_registration_treats_home_and_roaming_as_registered,
-    assert_parses_sms_storage_status_from_cpms,
-};
-
-#[cfg(test)]
 mod tests {
     use super::{NetworkRegistrationStatus, SmsStorageStatus, SmsType};
 
@@ -207,7 +200,8 @@ mod tests {
         assert_eq!(SmsType::All.to_at_command_pdu(), 4);
     }
 
-    pub(crate) fn assert_parses_sms_storage_status_from_cpms() {
+    #[test]
+    fn parses_sms_storage_status_from_cpms() {
         let status = SmsStorageStatus::from_response(
             "\r\n+CPMS: \"SM\",5,100,\"ME\",2,50,\"MT\",7,150\r\n\r\nOK\r\n",
         )
@@ -224,7 +218,8 @@ mod tests {
         assert_eq!(status.receive_total, 150);
     }
 
-    pub(crate) fn assert_network_registration_treats_home_and_roaming_as_registered() {
+    #[test]
+    fn network_registration_treats_home_and_roaming_as_registered() {
         let home = NetworkRegistrationStatus::from_response("+CREG: 0,1,\"1A2B\",\"1A2B\"")
             .expect("expected home registration to parse");
         let roaming = NetworkRegistrationStatus::from_response("+CREG: 0,5,\"1A2B\",\"1A2B\"")

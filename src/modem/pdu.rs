@@ -66,7 +66,3 @@ pub fn build_pdu(mobile: &str, message: &str) -> anyhow::Result<(String, usize)>
     let full_pdu = format!("{}{}", SMSC_INFO, tpdu);
     Ok((full_pdu, tpdu_length))
 }
-
-pub fn string_to_ucs2_pub(message: &str) -> anyhow::Result<String> {
-    string_to_ucs2(message)
-}

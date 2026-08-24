@@ -1,7 +1,9 @@
 use std::sync::Arc;
 use urlencoding::encode;
 
-use crate::config::{MessageFilter, SegmentName, TemplateSegment, TimeFilter, WebhookConfig};
+use crate::config::{
+    MessageFilter, Placeholder, SegmentName, TemplateSegment, TimeFilter, WebhookConfig,
+};
 use crate::db::{ModemSMS, SimCard};
 use chrono::{Datelike, NaiveDateTime};
 use log::{debug, error, info};
@@ -9,9 +11,8 @@ use reqwest::Client;
 use tokio::sync::{mpsc, Semaphore};
 
 async fn get_sim_effective_alias(sim_id: &str) -> String {
-    match SimCard::find_by_conditions(Some(sim_id), None, None, None).await {
-        Ok(mut sim_cards) if !sim_cards.is_empty() => {
-            let sim_card = sim_cards.remove(0);
+    match SimCard::find_by_id(sim_id).await {
+        Ok(Some(sim_card)) => {
             if let Some(alias) = sim_card.alias {
                 alias
             } else if let Some(phone) = sim_card.phone_number {
@@ -24,36 +25,66 @@ async fn get_sim_effective_alias(sim_id: &str) -> String {
     }
 }
 
-pub async fn apply_template_segments(segments: &[TemplateSegment], msg: &ModemSMS) -> String {
+#[derive(Clone, Copy)]
+enum TemplateEncoding {
+    Raw,
+    Placeholders,
+    All,
+}
+
+impl TemplateEncoding {
+    const fn encodes_fixed_text(self) -> bool {
+        matches!(self, Self::All)
+    }
+
+    const fn encodes_placeholders(self) -> bool {
+        matches!(self, Self::Placeholders | Self::All)
+    }
+}
+
+async fn resolve_placeholder(placeholder: &Placeholder, msg: &ModemSMS) -> String {
+    let value = match placeholder.name {
+        SegmentName::Contact => msg.contact.clone(),
+        SegmentName::Message => msg.message.clone(),
+        SegmentName::Sim => get_sim_effective_alias(&msg.sim_id).await,
+        SegmentName::Timestamp => msg.timestamp.to_string(),
+        SegmentName::Send => msg.send.to_string(),
+    };
+
+    let Some(regex) = &placeholder.regex else {
+        return value;
+    };
+    let Ok(Some(captures)) = regex.captures(&value) else {
+        return String::new();
+    };
+
+    if let Some(name) = &placeholder.regex_name {
+        captures.name(name).map(|value| value.as_str().to_string())
+    } else if let Some(index) = placeholder.regex_index {
+        captures.get(index).map(|value| value.as_str().to_string())
+    } else {
+        captures.get(1).map(|value| value.as_str().to_string())
+    }
+    .unwrap_or_default()
+}
+
+async fn render_template_segments(
+    segments: &[TemplateSegment],
+    msg: &ModemSMS,
+    encoding: TemplateEncoding,
+) -> String {
     let mut result = String::new();
 
     for segment in segments {
         match segment {
-            TemplateSegment::Fixed(text) => {
-                result.push_str(text);
+            TemplateSegment::Fixed(text) if encoding.encodes_fixed_text() => {
+                result.push_str(&encode(text));
             }
+            TemplateSegment::Fixed(text) => result.push_str(text),
             TemplateSegment::Placeholder(placeholder) => {
-                let value = match &placeholder.name {
-                    SegmentName::Contact => msg.contact.clone(),
-                    SegmentName::Message => msg.message.clone(),
-                    SegmentName::Sim => get_sim_effective_alias(&msg.sim_id).await,
-                    SegmentName::Timestamp => msg.timestamp.to_string(),
-                    SegmentName::Send => msg.send.to_string(),
-                };
-
-                if let Some(regex) = &placeholder.regex {
-                    if let Ok(Some(caps)) = regex.captures(&value) {
-                        let extracted = if let Some(name) = &placeholder.regex_name {
-                            caps.name(name).map(|m| m.as_str().to_string())
-                        } else if let Some(index) = placeholder.regex_index {
-                            caps.get(index).map(|m| m.as_str().to_string())
-                        } else {
-                            caps.get(1).map(|m| m.as_str().to_string())
-                        };
-                        if let Some(text) = extracted {
-                            result.push_str(&text);
-                        }
-                    }
+                let value = resolve_placeholder(placeholder, msg).await;
+                if encoding.encodes_placeholders() {
+                    result.push_str(&encode(&value));
                 } else {
                     result.push_str(&value);
                 }
@@ -64,110 +95,31 @@ pub async fn apply_template_segments(segments: &[TemplateSegment], msg: &ModemSM
     result
 }
 
+pub async fn apply_template_segments(segments: &[TemplateSegment], msg: &ModemSMS) -> String {
+    render_template_segments(segments, msg, TemplateEncoding::Raw).await
+}
+
 pub async fn apply_template_segments_url(segments: &[TemplateSegment], msg: &ModemSMS) -> String {
-    let mut result = String::new();
-
-    for segment in segments {
-        match segment {
-            TemplateSegment::Fixed(text) => {
-                result.push_str(text);
-            }
-            TemplateSegment::Placeholder(placeholder) => {
-                let value = match &placeholder.name {
-                    SegmentName::Contact => msg.contact.clone(),
-                    SegmentName::Message => msg.message.clone(),
-                    SegmentName::Sim => get_sim_effective_alias(&msg.sim_id).await,
-                    SegmentName::Timestamp => msg.timestamp.to_string(),
-                    SegmentName::Send => msg.send.to_string(),
-                };
-
-                let final_value = if let Some(regex) = &placeholder.regex {
-                    match regex.captures(&value) {
-                        Ok(Some(caps)) => {
-                            let extracted = if let Some(name) = &placeholder.regex_name {
-                                caps.name(name).map(|m| m.as_str().to_string())
-                            } else if let Some(index) = placeholder.regex_index {
-                                caps.get(index).map(|m| m.as_str().to_string())
-                            } else {
-                                caps.get(1).map(|m| m.as_str().to_string())
-                            };
-                            extracted.unwrap_or_default()
-                        }
-                        _ => String::new(),
-                    }
-                } else {
-                    value
-                };
-
-                result.push_str(&encode(&final_value));
-            }
-        }
-    }
-
-    result
+    render_template_segments(segments, msg, TemplateEncoding::Placeholders).await
 }
 
 pub async fn apply_template_segments_url_params(
     segments: &[TemplateSegment],
     msg: &ModemSMS,
 ) -> String {
-    let mut result = String::new();
-
-    for segment in segments {
-        match segment {
-            TemplateSegment::Fixed(text) => {
-                result.push_str(&encode(text));
-            }
-            TemplateSegment::Placeholder(placeholder) => {
-                let value = match &placeholder.name {
-                    SegmentName::Contact => msg.contact.clone(),
-                    SegmentName::Message => msg.message.clone(),
-                    SegmentName::Sim => get_sim_effective_alias(&msg.sim_id).await,
-                    SegmentName::Timestamp => msg.timestamp.to_string(),
-                    SegmentName::Send => msg.send.to_string(),
-                };
-
-                let final_value = if let Some(regex) = &placeholder.regex {
-                    match regex.captures(&value) {
-                        Ok(Some(caps)) => {
-                            let extracted = if let Some(name) = &placeholder.regex_name {
-                                caps.name(name).map(|m| m.as_str().to_string())
-                            } else if let Some(index) = placeholder.regex_index {
-                                caps.get(index).map(|m| m.as_str().to_string())
-                            } else {
-                                caps.get(1).map(|m| m.as_str().to_string())
-                            };
-                            extracted.unwrap_or_default()
-                        }
-                        _ => String::new(),
-                    }
-                } else {
-                    value
-                };
-
-                result.push_str(&encode(&final_value));
-            }
-        }
-    }
-
-    result
+    render_template_segments(segments, msg, TemplateEncoding::All).await
 }
 
 #[derive(Clone)]
 pub struct WebhookManager {
     client: Client,
-    pub(crate) configs: Arc<Vec<WebhookConfig>>,
+    configs: Arc<Vec<WebhookConfig>>,
     sender: mpsc::UnboundedSender<ModemSMS>,
     semaphore: Arc<Semaphore>,
-    max_concurrent_requests: usize,
 }
 
 impl WebhookManager {
-    pub fn new(configs: Vec<WebhookConfig>) -> Self {
-        Self::new_with_concurrency(configs, 10)
-    }
-
-    pub fn new_with_concurrency(configs: Vec<WebhookConfig>, max_concurrent: usize) -> Self {
+    fn new(configs: Vec<WebhookConfig>, max_concurrent: usize) -> Self {
         let (sender, receiver) = mpsc::unbounded_channel();
 
         let manager = WebhookManager {
@@ -175,7 +127,6 @@ impl WebhookManager {
             configs: Arc::new(configs),
             sender,
             semaphore: Arc::new(Semaphore::new(max_concurrent)),
-            max_concurrent_requests: max_concurrent,
         };
 
         let manager_clone = manager.clone();
@@ -405,47 +356,11 @@ impl WebhookManager {
             }
         }
     }
-
-    pub fn config_count(&self) -> usize {
-        self.configs.len()
-    }
-
-    pub fn max_concurrent_requests(&self) -> usize {
-        self.max_concurrent_requests
-    }
-
-    pub fn available_permits(&self) -> usize {
-        self.semaphore.available_permits()
-    }
-
-    #[cfg(test)]
-    pub async fn test_passes_filters(&self, msg: &ModemSMS) -> bool {
-        if let Some(config) = self.configs.first() {
-            self.passes_filters(config, msg).await
-        } else {
-            false
-        }
-    }
-
-    pub async fn shutdown(&self) {
-        info!("Shutting down webhook manager...");
-
-        let _permits = self
-            .semaphore
-            .acquire_many(self.max_concurrent_requests as u32)
-            .await;
-
-        info!("Webhook manager shutdown complete");
-    }
-}
-
-pub fn _start_webhook_worker(configs: Vec<WebhookConfig>) -> WebhookManager {
-    WebhookManager::new(configs.to_vec())
 }
 
 pub fn start_webhook_worker_with_concurrency(
     configs: Vec<WebhookConfig>,
     max_concurrent: usize,
 ) -> WebhookManager {
-    WebhookManager::new_with_concurrency(configs, max_concurrent)
+    WebhookManager::new(configs, max_concurrent)
 }

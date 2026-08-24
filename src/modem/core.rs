@@ -14,7 +14,7 @@ use crate::db::{Contact, ModemSMS, SimCard, Sms};
 use crate::decode::parse_pdu_sms;
 use crate::webhook;
 
-use super::pdu::{build_pdu, string_to_ucs2_pub};
+use super::pdu::build_pdu;
 use super::types::*;
 
 const TERMINATORS: &[&[u8]] = &[
@@ -35,9 +35,6 @@ pub struct Modem {
     pub baud_rate: u32,
     command_tx: mpsc::UnboundedSender<ATCommand>,
     pub sim_id: RwLock<Option<String>>,
-    _connection_state: Arc<RwLock<ConnectionState>>,
-    _command_semaphore: Arc<Semaphore>,
-    _serial_mutex: Arc<Mutex<Option<SerialStream>>>,
 }
 
 impl Modem {
@@ -93,9 +90,6 @@ impl Modem {
             baud_rate,
             command_tx,
             sim_id: RwLock::new(None),
-            _connection_state: connection_state,
-            _command_semaphore: command_semaphore,
-            _serial_mutex: serial_mutex,
         })
     }
 
@@ -433,13 +427,12 @@ impl Modem {
         Self::validate_soft_restart_result(self.send_command("AT+CFUN=1,1\r\n").await)
     }
 
-    async fn send_command_priority(&self, command: &str, priority: u8) -> io::Result<String> {
+    async fn send_command(&self, command: &str) -> io::Result<String> {
         let (response_tx, response_rx) = tokio::sync::oneshot::channel();
 
         let at_command = ATCommand {
             command: command.to_string(),
             response_tx,
-            _priority: priority,
             retries: 0,
         };
 
@@ -450,10 +443,6 @@ impl Modem {
         response_rx
             .await
             .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "Response channel closed"))?
-    }
-
-    async fn send_command(&self, command: &str) -> io::Result<String> {
-        self.send_command_priority(command, 5).await
     }
 
     fn normalize_at_command(command: &str) -> String {
@@ -519,7 +508,7 @@ impl Modem {
     where
         F: FnOnce(&str) -> anyhow::Result<String>,
     {
-        let prompt_response = self.send_command_priority(setup_cmd, 1).await?;
+        let prompt_response = self.send_command(setup_cmd).await?;
 
         if !prompt_response.contains("> ") {
             return Err(anyhow::anyhow!("SMS prompt not received"));
@@ -528,7 +517,7 @@ impl Modem {
         let transformed_message = transform_fn(message)?;
         let full_message = format!("{}\x1A", transformed_message);
 
-        let final_response = self.send_command_priority(&full_message, 1).await?;
+        let final_response = self.send_command(&full_message).await?;
 
         if final_response.contains("OK\r\n") && final_response.contains("+CMGS:") {
             Ok(final_response)
@@ -724,47 +713,6 @@ impl Modem {
             .replace("\r\n", "\\r\\n")
             .replace("\r", "\\r")
             .replace("\n", "\\n")
-    }
-
-    pub async fn send_sms_text(
-        &self,
-        contact: &Contact,
-        message: &str,
-    ) -> anyhow::Result<(i64, String)> {
-        info!("Sending SMS text to {}: {}", contact.name, message);
-
-        let sim_id = self.sim_id.read().await.clone().unwrap_or_default();
-
-        let sms = Sms {
-            id: 0,
-            contact_id: contact.id.clone(),
-            timestamp: Local::now().naive_local().with_nanosecond(0).unwrap(),
-            message: message.to_string(),
-            sim_id,
-            send: true,
-            status: crate::db::SmsStatus::Loading,
-        };
-
-        let sms_id = sms.insert().await?;
-
-        match self.send_text_message(&contact.name, message).await {
-            Ok(_) => {
-                Sms::update_status_by_id(sms_id, crate::db::SmsStatus::Read).await?;
-                Ok((sms_id, contact.id.clone()))
-            }
-            Err(e) => {
-                Sms::update_status_by_id(sms_id, crate::db::SmsStatus::Failed).await?;
-                Err(e)
-            }
-        }
-    }
-
-    async fn send_text_message(&self, phone: &str, message: &str) -> anyhow::Result<()> {
-        self.send_sms_content(&format!("AT+CMGS=\"{}\"\r", phone), message, |msg| {
-            string_to_ucs2_pub(msg)
-        })
-        .await?;
-        Ok(())
     }
 
     pub async fn read_sms_sync_insert(&self, sms_type: SmsType) -> anyhow::Result<()> {

@@ -613,7 +613,8 @@ impl<'de> Deserialize<'de> for TimeFilter {
 }
 
 #[cfg(test)]
-pub(crate) fn assert_deserializes_health_settings_and_webhooks() {
+#[test]
+fn config_deserializes_health_settings_and_webhooks() {
     let raw = r#"
         [settings]
         server_host = "127.0.0.1"
@@ -694,7 +695,8 @@ fn parse_and_validate_test_config(raw: &str) -> Result<AppConfig> {
 }
 
 #[cfg(test)]
-pub(crate) fn assert_rejects_zero_health_check_frequency() {
+#[test]
+fn config_rejects_zero_health_check_frequency() {
     let raw = r#"
         [settings]
         server_host = "127.0.0.1"
@@ -714,7 +716,8 @@ pub(crate) fn assert_rejects_zero_health_check_frequency() {
 }
 
 #[cfg(test)]
-pub(crate) fn assert_rejects_zero_health_failure_threshold() {
+#[test]
+fn config_rejects_zero_health_failure_threshold() {
     let raw = r#"
         [settings]
         server_host = "127.0.0.1"
@@ -734,7 +737,8 @@ pub(crate) fn assert_rejects_zero_health_failure_threshold() {
 }
 
 #[cfg(test)]
-pub(crate) fn assert_rejects_zero_health_restart_wait_seconds() {
+#[test]
+fn config_rejects_zero_health_restart_wait_seconds() {
     let raw = r#"
         [settings]
         server_host = "127.0.0.1"
@@ -754,7 +758,8 @@ pub(crate) fn assert_rejects_zero_health_restart_wait_seconds() {
 }
 
 #[cfg(test)]
-pub(crate) fn assert_rejects_invalid_health_webhook_config() {
+#[test]
+fn config_rejects_invalid_health_webhook_config() {
     let cases = [
         (
             "empty_url",
@@ -852,33 +857,5 @@ pub(crate) fn assert_rejects_invalid_health_webhook_config() {
             err.to_string().contains(expected_error),
             "case {case_name} expected error containing '{expected_error}', got '{err}'"
         );
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn config_deserializes_health_settings_and_webhooks() {
-        super::assert_deserializes_health_settings_and_webhooks();
-    }
-
-    #[test]
-    fn config_rejects_zero_health_check_frequency() {
-        super::assert_rejects_zero_health_check_frequency();
-    }
-
-    #[test]
-    fn config_rejects_zero_health_failure_threshold() {
-        super::assert_rejects_zero_health_failure_threshold();
-    }
-
-    #[test]
-    fn config_rejects_zero_health_restart_wait_seconds() {
-        super::assert_rejects_zero_health_restart_wait_seconds();
-    }
-
-    #[test]
-    fn config_rejects_invalid_health_webhook_config() {
-        super::assert_rejects_invalid_health_webhook_config();
     }
 }

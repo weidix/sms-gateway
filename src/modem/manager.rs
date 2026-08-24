@@ -16,7 +16,6 @@ pub struct ModemManager {
     modems: Arc<RwLock<HashMap<String, Arc<Modem>>>>,
     sim_cards_cache: Arc<RwLock<HashMap<String, SimCard>>>,
     configured_sms_storage: Arc<RwLock<HashMap<String, SmsStorage>>>,
-    _initialization_semaphore: Arc<Semaphore>,
 }
 
 impl ModemManager {
@@ -75,7 +74,6 @@ impl ModemManager {
             modems: Arc::new(RwLock::new(modems)),
             sim_cards_cache: Arc::new(RwLock::new(HashMap::new())),
             configured_sms_storage: Arc::new(RwLock::new(configured_sms_storage)),
-            _initialization_semaphore: initialization_semaphore,
         };
 
         manager.init_sim_cache().await?;
@@ -121,8 +119,8 @@ impl ModemManager {
     }
 
     async fn is_new_sim_id(sim_id: &str) -> bool {
-        match SimCard::find_by_conditions(Some(sim_id), None, None, None).await {
-            Ok(existing) => existing.is_empty(),
+        match SimCard::find_by_id(sim_id).await {
+            Ok(existing) => existing.is_none(),
             Err(e) => {
                 log::warn!("Failed to check SIM ID existence: {}", e);
                 true

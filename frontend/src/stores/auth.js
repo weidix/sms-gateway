@@ -36,24 +36,6 @@ export async function initAuth() {
     }
 }
 
-// 登录
-export async function login(username, password) {
-    try {
-        // 这里应该调用实际的登录 API
-        // 暂时使用简单的验证逻辑
-        if (username && password) {
-            await updateStorageValue('auth', { username, timestamp: Date.now() });
-            isAuthenticated.set(true);
-            return { success: true };
-        } else {
-            return { success: false, error: '用户名和密码不能为空' };
-        }
-    } catch (error) {
-        console.error('Login failed:', error);
-        return { success: false, error: '登录失败，请稍后重试' };
-    }
-}
-
 // 登出
 export async function logout() {
     try {

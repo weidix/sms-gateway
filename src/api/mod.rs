@@ -25,7 +25,7 @@ use crate::{
     config::SmsStorage,
     db::{Contact, Conversation, SimCard, Sms},
     health::{
-        state::{FailureReason, HealthSnapshot, HealthStatus, RecoveryAction},
+        state::{FailureReason, HealthSnapshot, RecoveryAction},
         supervisor::HealthSupervisor,
     },
     modem::{ModemInfo as ModemModel, OperatorInfo, SignalQuality, SmsType},
@@ -146,12 +146,12 @@ struct SimApiState {
 
 fn merge_health_snapshot(mut response: Value, snapshot: Option<&HealthSnapshot>) -> Value {
     if let Value::Object(ref mut object) = response {
-        let health_status = snapshot.map(|item| serialize_health_status(item.current_status));
+        let health_status = snapshot.map(|item| item.current_status.as_str());
         let failure_reasons = snapshot.map(|item| {
             item.failure_reasons
                 .iter()
                 .copied()
-                .map(serialize_failure_reason)
+                .map(FailureReason::as_str)
                 .collect::<Vec<_>>()
         });
         let consecutive_failures = snapshot.map(|item| item.consecutive_failures);
@@ -163,7 +163,7 @@ fn merge_health_snapshot(mut response: Value, snapshot: Option<&HealthSnapshot>)
             .map(|item| item.to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
         let last_recovery_action = snapshot
             .and_then(|item| item.last_recovery_action)
-            .map(serialize_recovery_action);
+            .map(RecoveryAction::as_str);
         let last_recovery_at = snapshot
             .and_then(|item| item.last_recovery_at)
             .map(|item| item.to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
@@ -193,34 +193,6 @@ async fn merge_health_snapshot_for_sim(
 ) -> Value {
     let snapshot = health_supervisor.snapshot_for(sim_id).await;
     merge_health_snapshot(response, snapshot.as_ref())
-}
-
-fn serialize_health_status(status: HealthStatus) -> &'static str {
-    match status {
-        HealthStatus::Healthy => "healthy",
-        HealthStatus::Degraded => "degraded",
-        HealthStatus::Recovering => "recovering",
-        HealthStatus::Critical => "critical",
-    }
-}
-
-fn serialize_failure_reason(reason: FailureReason) -> &'static str {
-    match reason {
-        FailureReason::AtUnreachable => "at_unreachable",
-        FailureReason::SimNotReady => "sim_not_ready",
-        FailureReason::NetworkNotRegistered => "network_not_registered",
-        FailureReason::SmsStorageUnavailable => "sms_storage_unavailable",
-        FailureReason::SmsStorageFull => "sms_storage_full",
-        FailureReason::ReadSmsFailed => "read_sms_failed",
-    }
-}
-
-fn serialize_recovery_action(action: RecoveryAction) -> &'static str {
-    match action {
-        RecoveryAction::ReinitializeModem => "reinitialize_modem",
-        RecoveryAction::ReapplySmsStorage => "reapply_sms_storage",
-        RecoveryAction::RestartModem => "restart_modem",
-    }
 }
 
 pub async fn run_api(
@@ -750,23 +722,13 @@ async fn get_enhanced_sim_info(
     }
 }
 
-#[cfg(test)]
-pub(crate) async fn assert_health_snapshot_merges_into_sim_info_response() {
-    api_handler_tests::assert_health_snapshot_merges_into_sim_info_response().await;
-}
-
-#[cfg(test)]
-pub(crate) async fn assert_health_snapshot_fields_stay_null_until_first_probe() {
-    api_handler_tests::assert_health_snapshot_fields_stay_null_until_first_probe().await;
-}
-
 #[derive(serde::Deserialize)]
-pub struct UpdateAliasRequest {
+struct UpdateAliasRequest {
     alias: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
-pub struct UpdatePhoneRequest {
+struct UpdatePhoneRequest {
     phone_number: Option<String>,
 }
 
@@ -789,25 +751,22 @@ async fn update_sim_alias(
     State(modem_manager): State<ModemManagerRef>,
     Json(request): Json<UpdateAliasRequest>,
 ) -> Response {
-    match SimCard::query_all().await {
-        Ok(sim_cards) => {
-            if let Some(mut sim_card) = sim_cards.into_iter().find(|s| s.id == sim_id) {
-                match sim_card.update_alias(request.alias.clone()).await {
-                    Ok(_) => {
-                        // Update cache
-                        modem_manager.update_sim_cache(sim_card.clone()).await;
-                        (StatusCode::OK, Json(sim_card)).into_response()
-                    }
-                    Err(e) => (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("Failed to update alias: {}", e),
-                    )
-                        .into_response(),
+    match SimCard::find_by_id(&sim_id).await {
+        Ok(Some(mut sim_card)) => {
+            match sim_card.update_alias(request.alias.clone()).await {
+                Ok(_) => {
+                    // Update cache
+                    modem_manager.update_sim_cache(sim_card.clone()).await;
+                    (StatusCode::OK, Json(sim_card)).into_response()
                 }
-            } else {
-                (StatusCode::NOT_FOUND, "SIM card not found").into_response()
+                Err(e) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to update alias: {}", e),
+                )
+                    .into_response(),
             }
         }
+        Ok(None) => (StatusCode::NOT_FOUND, "SIM card not found").into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("Failed to query SIM cards: {}", e),
@@ -821,28 +780,25 @@ async fn update_sim_phone(
     State(modem_manager): State<ModemManagerRef>,
     Json(request): Json<UpdatePhoneRequest>,
 ) -> Response {
-    match SimCard::query_all().await {
-        Ok(sim_cards) => {
-            if let Some(mut sim_card) = sim_cards.into_iter().find(|s| s.id == sim_id) {
-                match sim_card
-                    .update_phone_number(request.phone_number.clone())
-                    .await
-                {
-                    Ok(_) => {
-                        // Update cache
-                        modem_manager.update_sim_cache(sim_card.clone()).await;
-                        (StatusCode::OK, Json(sim_card)).into_response()
-                    }
-                    Err(e) => (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("Failed to update phone number: {}", e),
-                    )
-                        .into_response(),
+    match SimCard::find_by_id(&sim_id).await {
+        Ok(Some(mut sim_card)) => {
+            match sim_card
+                .update_phone_number(request.phone_number.clone())
+                .await
+            {
+                Ok(_) => {
+                    // Update cache
+                    modem_manager.update_sim_cache(sim_card.clone()).await;
+                    (StatusCode::OK, Json(sim_card)).into_response()
                 }
-            } else {
-                (StatusCode::NOT_FOUND, "SIM card not found").into_response()
+                Err(e) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to update phone number: {}", e),
+                )
+                    .into_response(),
             }
         }
+        Ok(None) => (StatusCode::NOT_FOUND, "SIM card not found").into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("Failed to query SIM cards: {}", e),
@@ -850,9 +806,6 @@ async fn update_sim_phone(
             .into_response(),
     }
 }
-
-// DELETE: refresh_alias_mapping_api - 不再需要，因为直接使用SIM ID作为键
-// async fn refresh_alias_mapping_api() {...}
 
 #[derive(Deserialize)]
 struct SmsStorageRequest {
@@ -1050,7 +1003,8 @@ mod api_handler_tests {
         assert_eq!(status, "ok");
     }
 
-    pub(crate) async fn assert_health_snapshot_merges_into_sim_info_response() {
+    #[tokio::test]
+    async fn health_snapshot_merges_into_sim_info_response() {
         let supervisor = Arc::new(HealthSupervisor::new(
             Arc::new(ApiTestProbe),
             Arc::new(ApiTestRecovery),
@@ -1094,7 +1048,8 @@ mod api_handler_tests {
         assert_eq!(merged["last_recovery_at"], "2026-05-04T09:20:00Z");
     }
 
-    pub(crate) async fn assert_health_snapshot_fields_stay_null_until_first_probe() {
+    #[tokio::test]
+    async fn health_snapshot_fields_stay_null_until_first_probe() {
         let supervisor = Arc::new(HealthSupervisor::new(
             Arc::new(ApiTestProbe),
             Arc::new(ApiTestRecovery),

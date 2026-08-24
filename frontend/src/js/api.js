@@ -62,20 +62,6 @@ class ApiClient {
         return await FetchApi.get(`/api/sims/${simId}/info`);
     }
 
-    /**
-     * Get all SIM dynamic information
-     */
-    async getAllSimsInfo() {
-        return FetchApi.get('/api/sims/info');
-    }
-
-    /**
-     * @param {any} simId
-     */
-    async refreshSms(simId) {
-        return FetchApi.get(`/api/sims/${simId}/refresh`)
-    }
-
     async getConversation() {
         return FetchApi.get('/api/conversation')
     }
