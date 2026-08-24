@@ -115,23 +115,23 @@
         in:fly={{ x: 20, duration: 250, easing: cubicOut }}
         out:fade={{ duration: 150 }}
     >
-        <div class="shell-card-compact mb-6 p-5 sm:p-6">
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div class="flex min-w-0 items-center gap-4">
-                    <div class="shell-icon-badge h-12 w-12 shrink-0 rounded-2xl">
+        <div class="shell-card mb-5 p-4">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex min-w-0 items-center gap-3">
+                    <div class="shell-icon-badge h-9 w-9 shrink-0 rounded-md">
                         <Icon
                             icon="carbon:sim-card"
-                            class="h-5 w-5"
+                            class="h-4 w-4"
                         />
                     </div>
                     <div class="min-w-0">
                         <p class="shell-label">Active Device</p>
                         <h3
-                            class="shell-heading mt-1 text-xl font-semibold sm:text-2xl"
+                            class="shell-heading shell-mono mt-1 text-base font-semibold"
                         >
                             {getDisplayName(simCard)}
                         </h3>
-                        <p class="mt-2 text-sm font-mono" style="color: var(--text-muted);">
+                        <p class="shell-mono mt-1 text-xs" style="color: var(--text-muted);">
                             IMSI: {simCard.imsi}
                         </p>
                     </div>

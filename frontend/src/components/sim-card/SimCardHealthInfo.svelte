@@ -1,28 +1,32 @@
 <script>
-    import Icon from "@iconify/svelte";
 
     let { simInfo = null } = $props();
 
     const statusDisplay = {
         healthy: {
             label: "Healthy",
-            badgeClass: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+            dotClass: "bg-green-600 dark:bg-green-500",
+            textClass: "text-green-700 dark:text-green-400"
         },
         degraded: {
             label: "Degraded",
-            badgeClass: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300"
+            dotClass: "bg-yellow-600 dark:bg-yellow-500",
+            textClass: "text-yellow-700 dark:text-yellow-400"
         },
         recovering: {
             label: "Recovering",
-            badgeClass: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+            dotClass: "bg-amber-500 dark:bg-amber-400",
+            textClass: "text-amber-700 dark:text-amber-400"
         },
         critical: {
             label: "Critical",
-            badgeClass: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+            dotClass: "bg-red-600 dark:bg-red-500",
+            textClass: "text-red-700 dark:text-red-400"
         },
         unknown: {
             label: "Unknown",
-            badgeClass: "bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+            dotClass: "bg-gray-400 dark:bg-gray-500",
+            textClass: "text-gray-600 dark:text-gray-400"
         }
     };
 
@@ -83,7 +87,8 @@
 
         return {
             label: formatLabel(healthStatus),
-            badgeClass: statusDisplay.unknown.badgeClass
+            dotClass: statusDisplay.unknown.dotClass,
+            textClass: statusDisplay.unknown.textClass
         };
     });
 </script>
@@ -91,16 +96,14 @@
 {#if hasAnyHealthData}
     <div class="shell-data-card space-y-4">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div class="flex items-center gap-2">
-                <Icon icon="mage:activity" class="h-4 w-4" style="color: var(--text-muted);" />
-                <div>
-                    <p class="shell-label">Health</p>
-                    <h4 class="shell-heading mt-1 text-lg font-semibold sm:text-xl">Operational Health</h4>
-                </div>
+            <div>
+                <p class="shell-label">Health</p>
+                <h4 class="shell-heading mt-1 text-base font-semibold">Operational Health</h4>
             </div>
 
             {#if healthBadge}
-                <span class={`inline-flex items-center self-start rounded-full px-2.5 py-1 text-xs font-semibold ${healthBadge.badgeClass}`}>
+                <span class={`inline-flex items-center gap-1.5 self-start text-xs font-medium ${healthBadge.textClass}`}>
+                    <span class={`h-1.5 w-1.5 rounded-full ${healthBadge.dotClass}`}></span>
                     {healthBadge.label}
                 </span>
             {/if}

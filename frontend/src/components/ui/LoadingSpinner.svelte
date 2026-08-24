@@ -4,7 +4,7 @@
   let {
     show = false,
     duration = 150,
-    size = "w-5 h-5"
+    size = "w-4 h-4"
   } = $props();
 </script>
 
@@ -15,7 +15,7 @@
   >
     <div
       class="inline-block animate-spin rounded-full border-2 {size}"
-      style="border-color: rgba(104, 114, 87, 0.18); border-top-color: var(--accent-copper);"
+      style="border-color: var(--line-strong); border-top-color: var(--text-muted);"
     ></div>
   </div>
 {/if}

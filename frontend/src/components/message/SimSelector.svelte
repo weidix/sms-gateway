@@ -69,89 +69,65 @@
     {#if showSimSelector}
       <div
         class="absolute bottom-[calc(100%+0.75rem)] left-0 z-20 w-full max-w-[calc(100vw-1.5rem)] overflow-y-hide scrollbar-hide md:w-[var(--sim-panel-width)] md:max-w-none"
-        transition:fly={{ y: 14, duration: 200, easing: quintOut }}
+        transition:fly={{ y: 8, duration: 150, easing: quintOut }}
       >
         <div
-          class="max-h-[70vh] overflow-hidden rounded-[26px] border shadow-[var(--shadow-strong)]"
-          style="border-color: var(--line-soft); background: var(--panel-strong);"
+          class="max-h-[70vh] overflow-hidden rounded-lg border shadow-[var(--shadow-strong)]"
+          style="border-color: var(--line-strong); background: var(--panel-strong);"
         >
           <div
-            class="border-b px-4 py-3"
+            class="flex items-center justify-between border-b px-3 py-2"
             style="border-color: var(--line-soft); background: var(--panel-soft);"
           >
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <div class="shell-icon-badge h-5 w-5 rounded-md">
-                  <Icon
-                    icon="carbon:sim-card"
-                    class="h-3 w-3"
-                  />
-                </div>
-                <span
-                  class="shell-label"
-                >
-                  Select SIM Card
-                </span>
-              </div>
-              <button
-                onclick={closeSimSelector}
-                class="flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-200 hover:bg-black/5 dark:hover:bg-white/5"
-              >
-                <Icon
-                  icon="carbon:close"
-                  class="h-3.5 w-3.5"
-                  style="color: var(--text-muted);"
-                />
-              </button>
-            </div>
+            <span class="shell-label">Select SIM Card</span>
+            <button
+              onclick={closeSimSelector}
+              class="flex h-6 w-6 items-center justify-center rounded transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/5"
+              aria-label="Close SIM selector"
+            >
+              <Icon icon="carbon:close" class="h-3.5 w-3.5" style="color: var(--text-muted);" />
+            </button>
           </div>
 
           <div
-            class="border-b px-3 py-3"
-            style="border-color: var(--line-soft); background: rgba(255,255,255,0.04);"
+            class="border-b px-2.5 py-2"
+            style="border-color: var(--line-soft);"
           >
             <div class="relative">
               <Icon
                 icon="carbon:search"
-                class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
+                class="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2"
                 style="color: var(--text-muted);"
               />
               <input
                 type="text"
                 bind:value={searchText}
                 placeholder="Search by name or number..."
-                class="shell-input h-11 pl-9 pr-3"
+                class="shell-input h-8 pl-8 pr-2 text-xs"
               />
             </div>
           </div>
 
           <div class="shell-scrollbar max-h-56 overflow-y-auto sm:max-h-64">
-            <div class="py-1">
+            <div class="p-1">
               {#each filteredSimCards as sim (sim.id)}
                 {@const isSelected = sim.id === selectedSim?.id}
                 <button
                   onclick={() => selectSim(sim)}
-                  class={`flex w-full items-center gap-3 px-3 py-3 text-left transition-all duration-150 ${
+                  class={`flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors duration-100 ${
                     isSelected
-                      ? 'bg-[var(--accent-soft)]'
+                      ? 'bg-[var(--panel-soft)]'
                       : 'hover:bg-black/5 dark:hover:bg-white/5'
                   }`}
                 >
-                  <div
-                    class={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
-                      isSelected
-                        ? 'bg-[var(--panel-contrast)] text-[var(--paper-strong)]'
-                        : 'border border-[color:var(--line-soft)] bg-[var(--panel-soft)] text-[var(--text-secondary)]'
-                    }`}
-                  >
-                    <Icon
-                      icon={isSelected ? "carbon:checkmark-filled" : "carbon:sim-card"}
-                      class="h-4 w-4"
-                    />
-                  </div>
-                  <div class="flex-1 text-left">
+                  <Icon
+                    icon={isSelected ? "carbon:checkmark" : "carbon:sim-card"}
+                    class={`h-4 w-4 shrink-0 ${isSelected ? '' : ''}`}
+                    style={`color: ${isSelected ? 'var(--text-strong)' : 'var(--text-muted)'};`}
+                  />
+                  <div class="min-w-0 flex-1">
                     <div
-                      class="text-sm font-medium"
+                      class="truncate text-sm font-medium"
                       style={`color: ${isSelected ? 'var(--text-strong)' : 'var(--text-secondary)'}`}
                     >
                       {sim.alias ||
@@ -160,36 +136,22 @@
                     </div>
                     {#if sim.alias && sim.phone_number}
                       <div
-                        class="text-xs font-mono"
-                        style={`color: ${isSelected ? 'var(--text-secondary)' : 'var(--text-muted)'}`}
+                        class="shell-mono truncate text-xs"
+                        style="color: var(--text-muted);"
                       >
                         {sim.phone_number}
                       </div>
                     {/if}
                   </div>
-                  <div class="shrink-0">
-                    {#if isSelected}
-                      <div class="flex items-center gap-1.5">
-                        <span class="shell-status-dot"></span>
-                        <span
-                          class="text-xs font-medium"
-                          style="color: var(--text-muted);"
-                        >
-                          Active
-                        </span>
-                      </div>
-                    {/if}
-                  </div>
+                  {#if isSelected}
+                    <span class="shell-status-dot shrink-0"></span>
+                  {/if}
                 </button>
               {:else}
                 <div
                   class="py-8 text-center text-sm"
                   style="color: var(--text-muted);"
                 >
-                  <Icon
-                    icon="carbon:search-locate-mirror"
-                    class="mx-auto mb-2 h-8 w-8 opacity-50"
-                  />
                   No SIM cards found
                 </div>
               {/each}
@@ -201,19 +163,15 @@
 
     <button
       onclick={toggleSimSelector}
-      class={`flex h-12 w-full items-center gap-3 rounded-[22px] border px-3.5 text-left transition-all duration-200 sm:h-14 sm:rounded-[24px] sm:px-4 ${
+      class={`flex h-9 w-full items-center gap-2 rounded-md border px-2.5 text-left transition-colors duration-150 ${
         showSimSelector
-          ? 'shadow-[var(--shadow-strong)]'
-          : 'hover:bg-black/5 dark:hover:bg-white/5'
+          ? 'border-[color:var(--line-strong)]'
+          : 'hover:border-[color:var(--line-strong)]'
       }`}
       style="border-color: var(--line-soft); background: var(--panel-strong);"
+      aria-expanded={showSimSelector}
     >
-      <div class="shell-icon-badge h-8 w-8 shrink-0 rounded-xl sm:h-9 sm:w-9">
-        <Icon
-          icon="carbon:sim-card"
-          class="h-3.5 w-3.5"
-        />
-      </div>
+      <Icon icon="carbon:sim-card" class="h-4 w-4 shrink-0" style="color: var(--text-muted);" />
       {#if selectedSim}
         <span
           class="min-w-0 flex-1 truncate text-sm font-medium"
@@ -223,27 +181,17 @@
             selectedSim.phone_number ||
             `SIM ${selectedSim.id.slice(-6)}`}
         </span>
-        <div class="ml-auto flex shrink-0 items-center gap-2.5">
-          <span class="shell-status-dot"></span>
-          <Icon
-            icon="carbon:chevron-down"
-            class="h-4 w-4 transition-transform duration-300"
-            style="transform: rotate({showSimSelector ? '180deg' : '0deg'}); color: var(--text-muted);"
-          />
-        </div>
+        <span class="shell-status-dot shrink-0"></span>
       {:else}
-        <span
-          class="min-w-0 flex-1 text-sm"
-          style="color: var(--text-muted);"
-        >
+        <span class="min-w-0 flex-1 truncate text-sm" style="color: var(--text-muted);">
           Select SIM
         </span>
-        <Icon
-          icon="carbon:chevron-down"
-          class="h-4 w-4 shrink-0 transition-transform duration-300"
-          style="transform: rotate({showSimSelector ? '180deg' : '0deg'}); color: var(--text-muted);"
-        />
       {/if}
+      <Icon
+        icon="carbon:chevron-down"
+        class="h-3.5 w-3.5 shrink-0 transition-transform duration-200"
+        style="transform: rotate({showSimSelector ? '180deg' : '0deg'}); color: var(--text-muted);"
+      />
     </button>
   </div>
 </div>

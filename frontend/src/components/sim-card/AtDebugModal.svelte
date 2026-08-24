@@ -129,49 +129,41 @@
     maxWidth="max-w-3xl"
     overlayClass="z-[60]"
 >
-    <div class="flex items-center justify-between gap-4 border-b p-4 sm:p-5"
-        style="border-color: var(--line-soft);"
+    <div class="flex items-center justify-between gap-4 border-b px-4 py-3"
+        style="border-color: var(--line-soft); background: var(--panel-strong);"
     >
-        <div class="flex items-center gap-3 min-w-0">
-            <div class="shell-icon-badge h-10 w-10 rounded-xl shrink-0">
-                <span class="text-xs font-semibold">AT</span>
+        <div class="flex min-w-0 items-center gap-2.5">
+            <div class="shell-icon-badge h-7 w-7 shrink-0 rounded">
+                <span class="shell-mono text-[11px] font-semibold">AT</span>
             </div>
             <div class="min-w-0">
-                <p class="shell-label">Raw Transport</p>
-                <h3 class="shell-heading mt-1 text-xl font-semibold sm:text-2xl">
-                    AT Debug
-                </h3>
-                <p class="text-xs sm:text-sm truncate" style="color: var(--text-muted);">
-                    {simLabel} · {portLabel || "Unknown port"} · single run output
+                <h3 class="shell-heading text-base font-semibold leading-tight">AT Debug</h3>
+                <p class="shell-mono mt-0.5 truncate text-xs" style="color: var(--text-muted);">
+                    {simLabel} · {portLabel || "Unknown port"}
                 </p>
             </div>
         </div>
 
-        <div class="flex items-center gap-2 shrink-0">
-            <span class="shell-chip hidden sm:inline-flex">
-                Raw Command
-            </span>
-            <button
-                class="shell-button h-11 w-11 px-0"
-                onclick={closeModal}
-                aria-label="Close AT debug"
-            >
-                <Icon icon="carbon:close" class="h-5 w-5" />
-            </button>
-        </div>
+        <button
+            class="shell-button h-8 w-8 px-0"
+            onclick={closeModal}
+            aria-label="Close AT debug"
+        >
+            <Icon icon="carbon:close" class="h-4 w-4" />
+        </button>
     </div>
 
-    <div class="border-b p-4 sm:p-5" style="border-color: var(--line-soft); background: var(--panel-soft);">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+    <div class="border-b px-4 py-3" style="border-color: var(--line-soft); background: var(--panel-strong);">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
             <input
                 type="text"
                 bind:value={command}
                 onkeydown={handleKeydown}
                 placeholder="Enter raw AT command"
-                class="shell-input h-11 flex-1 px-4 font-mono"
+                class="shell-input shell-mono flex-1"
             />
             <button
-                class={`shell-button h-11 w-full px-5 sm:w-auto ${isRunning || !command.trim() ? 'cursor-not-allowed opacity-50' : 'shell-button-primary'}`}
+                class={`shell-button w-full px-4 sm:w-auto ${isRunning || !command.trim() ? 'cursor-not-allowed opacity-50' : 'shell-button-primary'}`}
                 onclick={handleSubmit}
                 disabled={isRunning || !command.trim()}
             >
@@ -184,8 +176,8 @@
         <div class="flex items-center justify-between gap-3">
             <div class="text-sm" style="color: var(--text-muted);">Current execution</div>
             {#if execution}
-                <div class="flex items-center gap-2 text-xs" style="color: var(--text-muted);">
-                    <span class={`px-2.5 py-1 rounded-full font-semibold ${statusClasses(execution.status)}`}>
+                <div class="shell-mono flex items-center gap-2 text-xs" style="color: var(--text-muted);">
+                    <span class={`rounded-sm border px-1.5 py-0.5 font-semibold ${statusClasses(execution.status)}`}>
                         {formatStatus(execution.status)}
                     </span>
                     <span>{formatExecutionTime(execution.executed_at)}</span>
@@ -195,8 +187,8 @@
         </div>
 
         <div
-            class="shell-scrollbar flex-1 min-h-[16rem] rounded-[24px] border px-4 py-3 font-mono text-sm
-                   whitespace-pre-wrap break-words overflow-auto leading-7"
+            class="shell-scrollbar min-h-[14rem] flex-1 rounded-md border px-3 py-2.5 font-mono text-[0.8125rem]
+                   whitespace-pre-wrap break-words overflow-auto leading-6"
             style="border-color: var(--line-soft); background: var(--panel-soft); color: var(--text-secondary);"
         >
             {#if isRunning}

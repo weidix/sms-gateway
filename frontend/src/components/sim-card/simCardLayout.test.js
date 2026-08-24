@@ -17,19 +17,19 @@ test("sim card modal titles scale down before desktop", async () => {
 
   assert.match(
     modalSource,
-    /class="shell-heading text-xl font-semibold leading-tight sm:text-\[1\.4rem\] lg:text-\[1\.75rem\]"/,
+    /class="shell-heading text-base font-semibold leading-tight"/,
   );
   assert.match(
     tabContentSource,
-    /class="shell-heading mt-1 text-xl font-semibold sm:text-2xl"/,
+    /class="shell-heading shell-mono mt-1 text-base font-semibold"/,
   );
   assert.match(
     technicalInfoSource,
-    /class="shell-heading mt-1 text-lg font-semibold sm:text-xl"/,
+    /class="shell-heading mt-1 text-base font-semibold"/,
   );
   assert.match(
     atDebugModalSource,
-    /class="shell-heading mt-1 text-xl font-semibold sm:text-2xl"/,
+    /class="shell-heading text-base font-semibold leading-tight"/,
   );
 });
 
@@ -39,7 +39,7 @@ test("signal strength icons reserve stable space in the title and align bars wit
 
   assert.match(
     technicalInfoSource,
-    /<div class="shell-icon-badge-muted flex h-10 w-10 items-center justify-center rounded-xl">/,
+    /flex h-8 w-10 items-end justify-center rounded-md border/,
   );
   assert.match(
     indicatorSource,
@@ -51,7 +51,7 @@ test("signal strength icons reserve stable space in the title and align bars wit
   );
   assert.match(
     indicatorSource,
-    /class="signal-strength-bar w-\[0\.2rem\] shrink-0 rounded-full"/,
+    /class="signal-strength-bar w-\[0\.2rem\] shrink-0 rounded-sm"/,
   );
   assert.match(
     indicatorSource,
@@ -89,11 +89,11 @@ test("sim detail action rows keep controls readable on mobile", async () => {
   );
   assert.match(
     atDebugModalSource,
-    /<div class="flex flex-col gap-3 sm:flex-row sm:items-center">/,
+    /<div class="flex flex-col gap-2 sm:flex-row sm:items-center">/,
   );
   assert.match(
     atDebugModalSource,
-    /class=\{`shell-button h-11 w-full px-5 sm:w-auto \$\{isRunning \|\| !command\.trim\(\) \? 'cursor-not-allowed opacity-50' : 'shell-button-primary'\}`\}/,
+    /class=\{`shell-button w-full px-4 sm:w-auto \$\{isRunning \|\| !command\.trim\(\) \? 'cursor-not-allowed opacity-50' : 'shell-button-primary'\}`\}/,
   );
 });
 
@@ -102,10 +102,14 @@ test("shared modal shell preserves vertical breathing room on mobile", async () 
 
   assert.match(
     modalSource,
-    /class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black\/28 px-3 py-4 backdrop-blur-md sm:px-4 sm:py-6 \{overlayClass\}"/,
+    /class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black\/50 px-3 py-4 sm:px-4 sm:py-6 \{overlayClass\}"/,
+  );
+  assert.doesNotMatch(
+    modalSource,
+    /backdrop-blur/,
   );
   assert.match(
     modalSource,
-    /class="my-auto flex w-full \{maxWidth\} max-h-\[calc\(100dvh-2rem\)\] flex-col overflow-hidden rounded-\[32px\] sm:max-h-\[calc\(100dvh-3rem\)\] \{className\}"/,
+    /class="my-auto flex w-full \{maxWidth\} max-h-\[calc\(100dvh-2rem\)\] flex-col overflow-hidden rounded-xl border sm:max-h-\[calc\(100dvh-3rem\)\] \{className\}"/,
   );
 });

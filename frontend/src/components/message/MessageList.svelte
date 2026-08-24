@@ -1,5 +1,4 @@
 <script>
-  import Icon from "@iconify/svelte";
   import { get } from "svelte/store";
   import { apiClient } from "../../js/api";
   import { formatTimeRange, formatDate } from "../../js/dateFormat";
@@ -359,11 +358,9 @@
             {#if timeHeader || index === 0}
               <div
                 class="my-1 flex justify-center"
-                in:fade={{ duration: 300, delay: 100 }}
+                in:fade={{ duration: 200, delay: 100 }}
               >
-                <span class="rounded-full px-3 py-1 text-[11px] font-medium"
-                  style="background: var(--panel); color: var(--text-muted); border: 1px solid var(--line-soft);"
-                >
+                <span class="shell-mono text-[11px] font-medium" style="color: var(--text-muted);">
                   {timeHeader || formatDate(message.timestamp)}
                 </span>
               </div>
@@ -393,44 +390,36 @@
 >
   {#snippet children()}
     <div class="p-6 sm:p-8">
-      <div class="mb-7 text-center">
-        <div class="shell-icon-badge mx-auto mb-4">
-          <Icon icon="carbon:user-multiple-add" class="h-6 w-6" />
-        </div>
-        <h3 class="shell-heading text-xl font-semibold sm:text-2xl">
-          New Recipient
+      <div class="mb-6">
+        <p class="shell-label">New Recipient</p>
+        <h3 class="shell-heading mt-1.5 text-lg font-semibold">
+          Set a recipient for this thread
         </h3>
-        <p class="mt-2 text-sm leading-6 shell-subtitle">
-          Enter the phone number or contact name for this new thread.
+        <p class="mt-1.5 text-sm leading-6 shell-subtitle">
+          Enter the phone number or contact name messages will be sent to.
         </p>
       </div>
 
       <div class="mb-6">
-        <label for="new-recipient-input" class="shell-label mb-3 block">
+        <label for="new-recipient-input" class="mb-2 block text-sm font-medium" style="color: var(--text-secondary);">
           Recipient
         </label>
-        <div
-          class="rounded-[22px] border px-4 py-3 shadow-[var(--shadow-inset)] transition-all duration-200 focus-within:border-[color:var(--accent-copper)] focus-within:shadow-[0_0_0_1px_var(--ring-core),0_0_0_4px_var(--ring-soft)]"
-          style="border-color: var(--line-soft); background: var(--panel-strong);"
-        >
-          <input
-            id="new-recipient-input"
-            type="text"
-            bind:value={draftRecipientName}
-            bind:this={recipientDialogInput}
-            class="w-full appearance-none border-0 bg-transparent p-0 text-base font-medium outline-none ring-0 placeholder-[color:var(--text-muted)] focus:border-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 sm:text-lg"
-            style="color: var(--text-strong);"
-            placeholder="Enter recipient"
-            onkeydown={(event) => {
-              if (event.key === "Enter") {
-                handleRecipientConfirm();
-              }
-            }}
-          />
-        </div>
+        <input
+          id="new-recipient-input"
+          type="text"
+          bind:value={draftRecipientName}
+          bind:this={recipientDialogInput}
+          class="shell-input h-10 text-base font-medium"
+          placeholder="Enter recipient"
+          onkeydown={(event) => {
+            if (event.key === "Enter") {
+              handleRecipientConfirm();
+            }
+          }}
+        />
       </div>
 
-      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
         <button
           class="shell-button w-full"
           onclick={handleRecipientDialogClose}
@@ -451,9 +440,6 @@
 
 <style>
   .message-container {
-    background:
-      radial-gradient(circle at top, rgba(171, 113, 65, 0.06), transparent 32%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0));
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
     overscroll-behavior-y: contain;

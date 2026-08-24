@@ -1,6 +1,5 @@
 <script>
-  import { fly } from "svelte/transition";
-  import { quartOut } from "svelte/easing";
+  import { fade } from "svelte/transition";
   import { isAuthenticated, isAuthLoading } from "./stores/auth";
   import { initConversation } from "./stores/conversation";
   import Login from "./pages/Login.svelte";
@@ -21,16 +20,16 @@
       {#if $isAuthenticated}
         <div
           class="h-full min-h-0"
-          in:fly={{ y: 28, duration: 420, easing: quartOut }}
-          out:fly={{ y: -18, duration: 240, easing: quartOut }}
+          in:fade={{ duration: 180 }}
+          out:fade={{ duration: 120 }}
         >
           <Dashboard />
         </div>
       {:else}
         <div
           class="h-full"
-          in:fly={{ y: 24, duration: 420, easing: quartOut }}
-          out:fly={{ y: -18, duration: 240, easing: quartOut }}
+          in:fade={{ duration: 180 }}
+          out:fade={{ duration: 120 }}
         >
           <Login />
         </div>

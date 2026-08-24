@@ -24,7 +24,7 @@
             <div class="shell-data-row text-sm">
                 <Icon icon="mage:message-dots" class="mt-0.5 h-4 w-4" style="color: var(--text-muted);" />
                 <span style="color: var(--text-muted);">SMS Center:</span>
-                <span class="font-medium" style="color: var(--text-strong);">{simInfo.sms_center}</span>
+                <span class="shell-mono font-medium" style="color: var(--text-strong);">{simInfo.sms_center}</span>
             </div>
         {/if}
         
@@ -32,7 +32,7 @@
             <div class="shell-data-row text-sm">
                 <Icon icon="mage:shield-check" class="mt-0.5 h-4 w-4" style="color: var(--text-muted);" />
                 <span style="color: var(--text-muted);">SIM Status:</span>
-                <span class="font-medium" style="color: var(--text-strong);">{simInfo.sim_status}</span>
+                <span class="shell-mono font-medium" style="color: var(--text-strong);">{simInfo.sim_status}</span>
             </div>
         {/if}
         
@@ -40,7 +40,7 @@
             <div class="shell-data-row text-sm">
                 <Icon icon="mage:memory-card" class="mt-0.5 h-4 w-4" style="color: var(--text-muted);" />
                 <span style="color: var(--text-muted);">Memory:</span>
-                <span class="font-medium" style="color: var(--text-strong);">{simInfo.memory_status}</span>
+                <span class="shell-mono font-medium" style="color: var(--text-strong);">{simInfo.memory_status}</span>
             </div>
         {/if}
         
@@ -48,7 +48,7 @@
             <div class="shell-data-row text-sm">
                 <Icon icon="mage:link" class="mt-0.5 h-4 w-4" style="color: var(--text-muted);" />
                 <span style="color: var(--text-muted);">Port:</span>
-                <span class="font-medium" style="color: var(--text-strong);">{simInfo.com_port} @ {simInfo.baud_rate}</span>
+                <span class="shell-mono font-medium" style="color: var(--text-strong);">{simInfo.com_port} @ {simInfo.baud_rate}</span>
             </div>
         {/if}
         
@@ -56,7 +56,7 @@
             <div class="shell-data-row text-sm">
                 <Icon icon="mage:chart-up-b" class="mt-0.5 h-4 w-4" style="color: var(--text-muted);" />
                 <span style="color: var(--text-muted);">Signal Detail:</span>
-                <span class="font-medium" style="color: var(--text-strong);">RSSI: {simInfo.signal_quality.rssi}, BER: {simInfo.signal_quality.ber}</span>
+                <span class="shell-mono font-medium" style="color: var(--text-strong);">RSSI: {simInfo.signal_quality.rssi}, BER: {simInfo.signal_quality.ber}</span>
             </div>
         {/if}
         
@@ -64,7 +64,7 @@
             <div class="shell-data-row text-sm">
                 <Icon icon="mage:building-b" class="mt-0.5 h-4 w-4" style="color: var(--text-muted);" />
                 <span style="color: var(--text-muted);">Operator ID:</span>
-                <span class="font-medium" style="color: var(--text-strong);">{simInfo.operator_info.operator_id}</span>
+                <span class="shell-mono font-medium" style="color: var(--text-strong);">{simInfo.operator_info.operator_id}</span>
             </div>
         {/if}
     </div>

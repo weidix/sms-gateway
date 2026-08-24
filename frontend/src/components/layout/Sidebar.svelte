@@ -5,87 +5,58 @@
   let { onSimCardClick = () => {}, onLogoutClick = () => {}, onConversationSelect = () => {}, showLogout = true } = $props();
 </script>
 
-<div class="shell-card flex h-full w-full flex-col overflow-visible p-3 sm:p-4">
-  <div class="mb-3 flex items-center justify-between gap-3">
-    <div class="flex items-center gap-3">
-      <div class="shell-icon-badge">
-        <Icon icon="carbon:chat" class="h-5 w-5" />
-      </div>
-      <div>
-        <p class="shell-label">Workspace</p>
-        <h2 class="shell-heading text-lg font-semibold">Conversations</h2>
-      </div>
+<div class="flex h-full w-full flex-col overflow-visible">
+  <div
+    class="flex items-center gap-2.5 border-b px-4 py-3"
+    style="border-color: var(--line-soft);"
+  >
+    <div class="shell-icon-badge h-7 w-7 rounded">
+      <Icon icon="carbon:send-filled" class="h-3.5 w-3.5" />
     </div>
-    <span class="shell-chip shell-chip-muted hidden sm:inline-flex">Relay</span>
+    <div class="min-w-0 flex-1">
+      <h2 class="shell-heading truncate text-sm font-semibold leading-tight">SMS Gateway</h2>
+      <p class="shell-label mt-0.5 normal-case tracking-normal">Conversations</p>
+    </div>
   </div>
 
   <div class="min-h-0 flex-1 overflow-visible">
     <ConversationList onConversationSelect={onConversationSelect} />
   </div>
 
-  <div class="mt-3 grid gap-2 rounded-[22px] border p-2"
-    style="border-color: var(--line-soft); background: var(--panel-soft);"
+  <div
+    class="mt-auto grid gap-px border-t"
+    style="border-color: var(--line-soft); background: var(--line-soft);"
   >
     <button
-      class="shell-button group min-h-[72px] w-full justify-start rounded-[18px] px-3 py-2.5"
+      class="shell-button group h-11 w-full justify-start gap-2.5 border-0 px-4"
       onclick={() => onSimCardClick()}
     >
-      <div class="shell-icon-badge h-9 w-9 rounded-xl">
-        <Icon
-          icon="carbon:sim-card"
-          class="h-4 w-4"
-        />
-      </div>
-      <div class="flex flex-1 flex-col items-start text-left">
-        <span class="text-sm font-semibold leading-none mb-1" style="color: var(--text-strong);">
-          SIM Cards
-        </span>
-        <span class="line-clamp-1 text-xs leading-none" style="color: var(--text-muted);">
-          Modem health and device details
-        </span>
-      </div>
+      <Icon icon="carbon:sim-card" class="h-4 w-4 shrink-0" style="color: var(--text-muted);" />
+      <span class="flex-1 text-left text-sm font-medium" style="color: var(--text-strong);">
+        SIM Cards
+      </span>
       <Icon
         icon="carbon:chevron-right"
-        class="h-4 w-4 transition-colors duration-200 group-hover:translate-x-0.5"
+        class="h-3.5 w-3.5 transition-colors duration-150 group-hover:translate-x-0.5"
         style="color: var(--text-muted);"
       />
     </button>
 
     {#if showLogout}
       <button
-        class="shell-button group min-h-[72px] w-full justify-start rounded-[18px] px-3 py-2.5"
+        class="shell-button group h-11 w-full justify-start gap-2.5 border-0 px-4"
         onclick={() => onLogoutClick()}
       >
-        <div class="shell-icon-badge-muted h-9 w-9 rounded-xl">
-          <Icon
-            icon="carbon:logout"
-            class="h-4 w-4"
-          />
-        </div>
-        <div class="flex flex-1 flex-col items-start">
-          <span class="text-sm font-semibold leading-tight" style="color: var(--text-strong);">
-            Logout
-          </span>
-          <span class="line-clamp-1 text-xs leading-tight" style="color: var(--text-muted);">
-            End this local session cleanly
-          </span>
-        </div>
+        <Icon icon="carbon:logout" class="h-4 w-4 shrink-0" style="color: var(--text-muted);" />
+        <span class="flex-1 text-left text-sm font-medium" style="color: var(--text-strong);">
+          Logout
+        </span>
         <Icon
           icon="carbon:chevron-right"
-          class="h-4 w-4 transition-colors duration-200 group-hover:translate-x-0.5"
+          class="h-3.5 w-3.5 transition-colors duration-150 group-hover:translate-x-0.5"
           style="color: var(--text-muted);"
         />
       </button>
     {/if}
   </div>
 </div>
-
-<style>
-  .line-clamp-1 {
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    line-clamp: 1;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-</style>

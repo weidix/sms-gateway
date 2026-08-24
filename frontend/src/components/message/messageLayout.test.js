@@ -49,11 +49,11 @@ test("dashboard message panel allows nested scroll regions to shrink", async () 
 
   assert.match(
     source,
-    /<div class="relative flex h-full w-full overflow-hidden p-2\.5 sm:p-3\.5 lg:gap-3\.5">/,
+    /<div class="relative flex h-full w-full overflow-hidden">/,
   );
   assert.match(
     source,
-    /<div class="shell-card relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">/,
+    /<main class="shell-panel relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">/,
   );
   assert.match(
     source,
@@ -96,21 +96,25 @@ test("composer keeps the sim picker overlay from shrinking the input row", async
   );
 });
 
-test("composer input controls share the same pill radius", async () => {
+test("composer input controls stay compact and share one control height", async () => {
   const messageInputSource = await readFile(messageInputPath, "utf8");
   const simSelectorSource = await readFile(simSelectorPath, "utf8");
 
   assert.match(
     messageInputSource,
-    /class="shell-input h-12 rounded-\[22px\] pl-11 pr-4 sm:h-14 sm:rounded-\[24px\] sm:pl-12"/,
+    /class="shell-input h-10 flex-1"/,
   );
   assert.match(
     messageInputSource,
-    /class=\{`shell-button h-12 min-w-\[112px\] shrink-0 rounded-\[22px\] sm:h-14 sm:min-w-\[124px\] sm:rounded-\[24px\]/,
+    /class=\{`shell-button h-10 shrink-0 px-4/,
+  );
+  assert.doesNotMatch(
+    messageInputSource,
+    /rounded-\[2[24]px\]/,
   );
   assert.match(
     simSelectorSource,
-    /rounded-\[24px\]/,
+    /flex h-9 w-full items-center gap-2 rounded-md border px-2\.5 text-left/,
   );
 });
 
@@ -119,19 +123,15 @@ test("primary action buttons keep readable contrast on hover and press", async (
 
   assert.match(
     source,
-    /\.shell-button-primary:hover\s*\{[\s\S]*background:\s*linear-gradient\(/,
+    /\.shell-button-primary\s*\{[\s\S]*background:\s*var\(--panel-contrast\);/,
   );
   assert.match(
     source,
-    /\.shell-button-primary:hover\s*\{[\s\S]*color:\s*#fbf4ea;/,
+    /\.shell-button-primary\s*\{[\s\S]*color:\s*var\(--paper-strong\);/,
   );
-  assert.match(
+  assert.doesNotMatch(
     source,
-    /\.shell-button-primary:active\s*\{[\s\S]*background:\s*linear-gradient\(/,
-  );
-  assert.match(
-    source,
-    /\.shell-button-primary:active\s*\{[\s\S]*color:\s*#fbf4ea;/,
+    /linear-gradient\(/,
   );
   assert.match(
     source,
@@ -157,7 +157,7 @@ test("sidebar preserves search focus glow without losing scroll clipping", async
 
   assert.match(
     sidebarSource,
-    /<div class="shell-card flex h-full w-full flex-col overflow-visible p-3 sm:p-4">/,
+    /<div class="flex h-full w-full flex-col overflow-visible">/,
   );
   assert.match(
     sidebarSource,
@@ -186,7 +186,7 @@ test("message workspace titles and actions stay compact through tablet widths", 
 
   assert.match(
     dashboardSource,
-    /class="shell-button h-10 min-w-0 max-w-\[calc\(100%-3\.5rem\)\] px-3 py-2"/,
+    /class="shell-button h-9 min-w-0 max-w-\[calc\(100%-3\.5rem\)\] px-3 py-1\.5"/,
   );
   assert.match(
     dashboardSource,
@@ -201,15 +201,7 @@ test("message workspace titles and actions stay compact through tablet widths", 
     /<div class="flex flex-col gap-3 md:flex-row xl:w-auto xl:shrink-0">/,
   );
   assert.match(
-    messageInputSource,
-    /class="shell-input h-12 rounded-\[22px\] pl-11 pr-4 sm:h-14 sm:rounded-\[24px\] sm:pl-12"/,
-  );
-  assert.match(
-    messageInputSource,
-    /class=\{`shell-button h-12 min-w-\[112px\] shrink-0 rounded-\[22px\] sm:h-14 sm:min-w-\[124px\] sm:rounded-\[24px\]/,
-  );
-  assert.match(
     messageListSource,
-    /<div class="grid grid-cols-1 gap-3 md:grid-cols-2">/,
+    /<div class="grid grid-cols-1 gap-2 md:grid-cols-2">/,
   );
 });

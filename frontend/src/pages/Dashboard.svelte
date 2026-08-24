@@ -39,10 +39,10 @@
   }
 </script>
 
-<div class="relative flex h-full w-full overflow-hidden p-2.5 sm:p-3.5 lg:gap-3.5">
+<div class="relative flex h-full w-full overflow-hidden">
   {#if isSidebarOpen}
     <div
-      class="fixed inset-0 z-20 bg-black/30 backdrop-blur-md lg:hidden"
+      class="fixed inset-0 z-20 bg-black/50 lg:hidden"
       role="button"
       tabindex="0"
       aria-label="Close sidebar"
@@ -51,43 +51,49 @@
     ></div>
   {/if}
 
-  <div
-    class={`fixed inset-y-2.5 left-0 z-30 w-screen max-w-sm transform transition-transform duration-300 ease-out sm:left-2.5 sm:w-[calc(100vw-1.25rem)] lg:static lg:w-[20rem] lg:translate-x-0
+  <aside
+    class={`fixed inset-y-0 left-0 z-30 w-screen max-w-sm transform transition-transform duration-200 ease-out sm:w-[calc(100vw-1.25rem)] lg:static lg:w-[19rem] lg:translate-x-0
       ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
   >
-    <Sidebar 
-      onSimCardClick={handleSimCardClick}
-      onLogoutClick={logout}
-      showLogout={$isLoginRequired}
-      onConversationSelect={closeSidebar}
-    />
-  </div>
+    <div
+      class="h-full w-full border-r bg-[var(--panel)]"
+      style="border-color: var(--line-soft);"
+    >
+      <Sidebar
+        onSimCardClick={handleSimCardClick}
+        onLogoutClick={logout}
+        showLogout={$isLoginRequired}
+        onConversationSelect={closeSidebar}
+      />
+    </div>
+  </aside>
 
-  <div class="shell-card relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-    <div class="flex items-center justify-between border-b px-4 py-2.5 lg:hidden"
-      style="border-color: var(--line-soft); background: linear-gradient(180deg, var(--panel-strong), rgba(255,255,255,0));"
+  <main class="shell-panel relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+    <div
+      class="flex items-center justify-between gap-2 border-b px-3 py-2 lg:hidden"
+      style="border-color: var(--line-soft); background: var(--panel-strong);"
     >
       <button
-        class="shell-button h-10 min-w-0 max-w-[calc(100%-3.5rem)] px-3 py-2"
+        class="shell-button h-9 min-w-0 max-w-[calc(100%-3.5rem)] px-3 py-1.5"
         onclick={toggleSidebar}
       >
-        <Icon icon={isSidebarOpen ? "carbon:close" : "carbon:menu"} class="h-5 w-5" />
+        <Icon icon={isSidebarOpen ? "carbon:close" : "carbon:menu"} class="h-4 w-4" />
         <span class="truncate text-xs font-medium sm:text-sm">{isSidebarOpen ? 'Close' : 'Conversations'}</span>
       </button>
 
       <button
-        class="shell-button h-10 w-10 px-0"
+        class="shell-button h-9 w-9 px-0"
         onclick={handleSimCardClick}
         aria-label="Open SIM details"
       >
-        <Icon icon="carbon:sim-card" class="h-5 w-5" />
+        <Icon icon="carbon:sim-card" class="h-4 w-4" />
       </button>
     </div>
 
     <div class="flex min-h-0 flex-1 flex-col">
       <MessageList />
     </div>
-  </div>
+  </main>
 </div>
 
 <SimCardModal

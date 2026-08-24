@@ -118,32 +118,26 @@
 
 <Modal {isOpen} {onClose}>
     <div
-        class="flex flex-col gap-3 border-b px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6"
-        style="border-color: var(--line-soft);"
+        class="flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5"
+        style="border-color: var(--line-soft); background: var(--panel-strong);"
     >
-        <div class="flex min-w-0 items-center gap-3">
-            <div class="shell-icon-badge shrink-0">
-                <Icon icon="carbon:sim-card" class="h-4 w-4" />
+        <div class="flex min-w-0 items-center gap-2.5">
+            <div class="shell-icon-badge h-7 w-7 shrink-0 rounded">
+                <Icon icon="carbon:sim-card" class="h-3.5 w-3.5" />
             </div>
             <div class="min-w-0">
-                <p class="shell-label">Device Detail</p>
-                <h2 class="shell-heading text-xl font-semibold leading-tight sm:text-[1.4rem] lg:text-[1.75rem]">
-                    SIM Card Information
-                </h2>
+                <h2 class="shell-heading text-base font-semibold leading-tight">SIM Cards</h2>
+                <p class="shell-label mt-0.5">{$simCards.length} installed</p>
             </div>
         </div>
 
-        <div class="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
-            <span class="shell-chip shell-chip-muted text-[11px] sm:text-xs">
-                {$simCards.length} SIM{$simCards.length === 1 ? '' : 's'}
-            </span>
-            <button
-                class="shell-button h-10 w-10 px-0"
-                onclick={() => onClose()}
-            >
-                <Icon icon="carbon:close" class="h-5 w-5" />
-            </button>
-        </div>
+        <button
+            class="shell-button h-8 w-8 px-0"
+            onclick={() => onClose()}
+            aria-label="Close"
+        >
+            <Icon icon="carbon:close" class="h-4 w-4" />
+        </button>
     </div>
 
     <SimCardTabs
