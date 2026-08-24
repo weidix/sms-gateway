@@ -4,6 +4,7 @@
   import MessageList from "../components/message/MessageList.svelte";
   import SimCardModal from "../components/sim-card/SimCardModal.svelte";
   import Icon from "@iconify/svelte";
+  import { isLoginRequired } from "../stores/auth";
 
   let modemInfoCardOpen = $state(false);
   let isSidebarOpen = $state(false);
@@ -57,6 +58,7 @@
     <Sidebar 
       onSimCardClick={handleSimCardClick}
       onLogoutClick={logout}
+      showLogout={$isLoginRequired}
       onConversationSelect={closeSidebar}
     />
   </div>

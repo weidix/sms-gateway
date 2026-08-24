@@ -35,12 +35,6 @@ const connectSSE = () => {
     }
 
     const authHeader = getAuthHeader();
-    if (!authHeader.Authorization) {
-        console.error('SSE Error: Authorization token not found.');
-        sseConnected.set(false);
-        return;
-    }
-
     const eventSourceInitDict = {
         headers: {
             ...authHeader
@@ -340,5 +334,4 @@ export const createNewContactName = () => {
     const randomName = `新信息 ${timestamp}-${randomPart}`;
     return randomName;
 }
-
 

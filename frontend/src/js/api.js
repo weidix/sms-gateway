@@ -6,6 +6,14 @@ import FetchApi from './request';
  */
 class ApiClient {
     /**
+     * Read the public authentication mode used by the server.
+     */
+    async getAuthStatus() {
+        const response = await FetchApi.get('/api/auth/status');
+        return response.data;
+    }
+
+    /**
      * Check authentication validity
      */
     async checkAuth() {

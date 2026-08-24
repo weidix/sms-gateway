@@ -5,6 +5,7 @@ import { apiClient } from '../js/api';
 // 认证状态管理
 export const isAuthenticated = writable(false);
 export const isAuthLoading = writable(true);
+export const isLoginRequired = writable(true);
 
 // 立即开始初始化认证状态
 initAuth();
@@ -14,6 +15,15 @@ export async function initAuth() {
     isAuthLoading.set(true);
     
     try {
+        const authStatus = await apiClient.getAuthStatus();
+        const loginRequired = authStatus?.login_required !== false;
+        isLoginRequired.set(loginRequired);
+
+        if (!loginRequired) {
+            isAuthenticated.set(true);
+            return;
+        }
+
         const authData = await getStorageValue('auth');
         const isValid = authData && await apiClient.checkAuth();
         

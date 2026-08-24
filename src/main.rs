@@ -215,9 +215,16 @@ fn log_init(log_path: &PathBuf, log_level: &LevelFilter) -> anyhow::Result<()> {
 // SIM检测逻辑已完全移除 - 设备映射在启动时建立，运行时不再检测
 
 fn resolve_basic_auth(settings: &Settings) -> anyhow::Result<Option<(String, String)>> {
+    if settings.login_required == Some(false) {
+        return Ok(None);
+    }
+
     match (&settings.username, &settings.password) {
         (Some(username), Some(password)) => Ok(Some((username.clone(), password.clone()))),
-        (None, None) => Ok(None),
+        (None, None) if settings.login_required.is_none() => Ok(None),
+        (None, None) => Err(anyhow::anyhow!(
+            "username and password are required when login_required is true"
+        )),
         _ => Err(anyhow::anyhow!(
             "Both username and password must be set together to enable authentication"
         )),
@@ -276,6 +283,7 @@ mod main_tests {
         config::Settings {
             server_host: "127.0.0.1".to_string(),
             server_port: 0,
+            login_required: None,
             username: username.map(str::to_string),
             password: password.map(str::to_string),
             read_sms_frequency: 30,
@@ -293,6 +301,26 @@ mod main_tests {
     fn resolve_basic_auth_allows_missing_credentials() {
         let auth = resolve_basic_auth(&test_settings(None, None)).unwrap();
         assert!(auth.is_none());
+    }
+
+    #[test]
+    fn resolve_basic_auth_can_explicitly_disable_login() {
+        let mut settings = test_settings(Some("admin"), Some("secret"));
+        settings.login_required = Some(false);
+
+        let auth = resolve_basic_auth(&settings).unwrap();
+
+        assert!(auth.is_none());
+    }
+
+    #[test]
+    fn resolve_basic_auth_requires_credentials_when_login_is_required() {
+        let mut settings = test_settings(None, None);
+        settings.login_required = Some(true);
+
+        let err = resolve_basic_auth(&settings).unwrap_err();
+
+        assert!(err.to_string().contains("login_required is true"));
     }
 
     #[test]

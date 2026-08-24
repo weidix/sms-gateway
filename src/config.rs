@@ -15,6 +15,11 @@ pub struct AppConfig {
 pub struct Settings {
     pub server_host: String,
     pub server_port: u16,
+    /// Whether the web interface and API require HTTP Basic authentication.
+    ///
+    /// When omitted, authentication remains enabled only when both legacy
+    /// credential fields are configured.
+    pub login_required: Option<bool>,
     pub username: Option<String>,
     pub password: Option<String>,
     pub read_sms_frequency: u64,
@@ -613,6 +618,7 @@ pub(crate) fn assert_deserializes_health_settings_and_webhooks() {
         [settings]
         server_host = "127.0.0.1"
         server_port = 8080
+        login_required = false
         read_sms_frequency = 30
         health_check_frequency = 45
         health_failure_threshold = 5
@@ -642,6 +648,7 @@ pub(crate) fn assert_deserializes_health_settings_and_webhooks() {
         .expect("test config should deserialize");
 
     assert_eq!(app_config.settings.health_check_frequency, 45);
+    assert_eq!(app_config.settings.login_required, Some(false));
     assert_eq!(app_config.settings.health_failure_threshold, 5);
     assert_eq!(app_config.settings.health_restart_wait_seconds, 60);
 

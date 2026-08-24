@@ -2,7 +2,7 @@
   import Icon from "@iconify/svelte";
   import ConversationList from "../conversation/ConversationList.svelte";
 
-  let { onSimCardClick = () => {}, onLogoutClick = () => {}, onConversationSelect = () => {} } = $props();
+  let { onSimCardClick = () => {}, onLogoutClick = () => {}, onConversationSelect = () => {}, showLogout = true } = $props();
 </script>
 
 <div class="shell-card flex h-full w-full flex-col overflow-visible p-3 sm:p-4">
@@ -51,30 +51,32 @@
       />
     </button>
 
-    <button
-      class="shell-button group min-h-[72px] w-full justify-start rounded-[18px] px-3 py-2.5"
-      onclick={() => onLogoutClick()}
-    >
-      <div class="shell-icon-badge-muted h-9 w-9 rounded-xl">
+    {#if showLogout}
+      <button
+        class="shell-button group min-h-[72px] w-full justify-start rounded-[18px] px-3 py-2.5"
+        onclick={() => onLogoutClick()}
+      >
+        <div class="shell-icon-badge-muted h-9 w-9 rounded-xl">
+          <Icon
+            icon="carbon:logout"
+            class="h-4 w-4"
+          />
+        </div>
+        <div class="flex flex-1 flex-col items-start">
+          <span class="text-sm font-semibold leading-tight" style="color: var(--text-strong);">
+            Logout
+          </span>
+          <span class="line-clamp-1 text-xs leading-tight" style="color: var(--text-muted);">
+            End this local session cleanly
+          </span>
+        </div>
         <Icon
-          icon="carbon:logout"
-          class="h-4 w-4"
+          icon="carbon:chevron-right"
+          class="h-4 w-4 transition-colors duration-200 group-hover:translate-x-0.5"
+          style="color: var(--text-muted);"
         />
-      </div>
-      <div class="flex flex-1 flex-col items-start">
-        <span class="text-sm font-semibold leading-tight" style="color: var(--text-strong);">
-          Logout
-        </span>
-        <span class="line-clamp-1 text-xs leading-tight" style="color: var(--text-muted);">
-          End this local session cleanly
-        </span>
-      </div>
-      <Icon
-        icon="carbon:chevron-right"
-        class="h-4 w-4 transition-colors duration-200 group-hover:translate-x-0.5"
-        style="color: var(--text-muted);"
-      />
-    </button>
+      </button>
+    {/if}
   </div>
 </div>
 

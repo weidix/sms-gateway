@@ -6,9 +6,10 @@
 server_host = "0.0.0.0"          # Host to bind the web server to
 server_port = 8080               # Port for the web server
 
-# Authentication (optional)
-username = "admin"               # Web interface username
-password = "your_secure_password" # Web interface password
+# Authentication
+login_required = true            # Set to false to open the web interface without signing in
+username = "admin"               # Required when login_required is true
+password = "your_secure_password" # Required when login_required is true
 
 # SMS reading frequency in seconds
 read_sms_frequency = 30          # How often to check for new SMS messages

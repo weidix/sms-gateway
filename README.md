@@ -64,6 +64,7 @@ cargo run --release -- --config ./config.toml
 - Start with [`config.toml.example`](./config.toml.example).
 - Add your modem ports under `[[devices]]`.
 - Set the web login, polling interval, and webhook behavior under `[settings]`.
+- Set `login_required = false` under `[settings]` to open the web interface without signing in. This also disables API authentication, so use it only on a trusted network.
 - For the complete set of available options, use the example config as the reference.
 
 ## License

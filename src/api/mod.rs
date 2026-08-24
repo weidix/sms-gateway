@@ -231,6 +231,7 @@ pub async fn run_api(
     auth: Option<(&str, &str)>,
     sse_manager: Arc<SseManager>,
 ) -> anyhow::Result<()> {
+    let login_required = auth.is_some();
     let sim_api_state = SimApiState {
         modem_manager: modem_manager.clone(),
         health_supervisor,
@@ -288,6 +289,10 @@ pub async fn run_api(
     }
 
     let app = Router::new()
+        .route(
+            "/api/auth/status",
+            get(move || async move { Json(json!({ "login_required": login_required })) }),
+        )
         .nest_service("/api", api)
         .fallback(static_handler);
 
