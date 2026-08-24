@@ -19,7 +19,7 @@
   import { onDestroy, onMount, tick } from "svelte";
   import MessageHeader from "./MessageHeader.svelte";
   import MessageItem from "./MessageItem.svelte";
-  import MessageInput from "./MessageInputOptimized.svelte";
+  import MessageInput from "./MessageInput.svelte";
   import {
     MessageScrollAlignment,
     canApplyBottomAlignment,

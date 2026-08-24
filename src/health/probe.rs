@@ -11,16 +11,6 @@ use crate::{
 
 pub type HealthFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
-#[allow(dead_code)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProbeCheck {
-    AtReachable,
-    SimReady,
-    NetworkRegistered,
-    SmsStorageAvailable,
-    SmsStorageNotFull,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HealthCheckResult {
     failed_reasons: BTreeSet<FailureReason>,

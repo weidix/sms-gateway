@@ -311,42 +311,6 @@ fn decode_alphanumeric_sender(bytes: &[u8], digit_count: usize) -> String {
     result
 }
 
-#[allow(dead_code)]
-fn decode_gsm7bit_sender(bytes: &[u8], septets: usize) -> String {
-    let mut result = String::new();
-    let mut bit_buffer: u64 = 0;
-    let mut bits_in_buffer = 0;
-    let mut septets_decoded = 0;
-
-    for &byte in bytes {
-        if septets_decoded >= septets {
-            break;
-        }
-
-        bit_buffer |= (byte as u64) << bits_in_buffer;
-        bits_in_buffer += 8;
-
-        while bits_in_buffer >= 7 && septets_decoded < septets {
-            let septet = (bit_buffer & 0x7F) as u8;
-            bit_buffer >>= 7;
-            bits_in_buffer -= 7;
-            septets_decoded += 1;
-
-            let ch = gsm7bit_to_char(septet);
-            if ch != '\0' && ch.is_ascii_graphic() {
-                result.push(ch);
-            }
-
-            // Stop at first non-printable character or null
-            if ch == '\0' || !ch.is_ascii_graphic() {
-                break;
-            }
-        }
-    }
-
-    result
-}
-
 fn decode_gsm7bit_with_offset(bytes: &[u8], bit_offset: usize) -> String {
     let mut result = String::new();
     let mut bit_buffer: u64 = 0;
@@ -370,35 +334,6 @@ fn decode_gsm7bit_with_offset(bytes: &[u8], bit_offset: usize) -> String {
     }
 
     result.trim_end_matches('\0').to_string()
-}
-
-#[allow(dead_code)]
-fn decode_gsm7bit_with_septets(bytes: &[u8], septets: usize) -> String {
-    let mut result = String::new();
-    let mut bit_buffer: u64 = 0;
-    let mut bits_in_buffer = 0;
-    let mut septets_decoded = 0;
-
-    for &byte in bytes {
-        if septets_decoded >= septets {
-            break;
-        }
-
-        bit_buffer |= (byte as u64) << bits_in_buffer;
-        bits_in_buffer += 8;
-
-        while bits_in_buffer >= 7 && septets_decoded < septets {
-            let septet = (bit_buffer & 0x7F) as u8;
-            bit_buffer >>= 7;
-            bits_in_buffer -= 7;
-            septets_decoded += 1;
-
-            let ch = gsm7bit_to_char(septet);
-            result.push(ch);
-        }
-    }
-
-    result
 }
 
 fn gsm7bit_to_char(septet: u8) -> char {

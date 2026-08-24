@@ -682,14 +682,6 @@ pub struct EnhancedModemInfo {
     pub memory_status: Option<String>,
 }
 
-#[derive(Serialize)]
-#[allow(dead_code)]
-pub struct ModemInfo {
-    pub name: String,
-    pub com_port: String,
-    pub baud_rate: u32,
-}
-
 async fn get_all_sim_cards() -> Response {
     match SimCard::query_all().await {
         Ok(sim_cards) => (StatusCode::OK, Json(sim_cards)).into_response(),
