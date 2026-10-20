@@ -67,6 +67,29 @@ cargo run --release -- --config ./config.toml
 - Set `login_required = false` under `[settings]` to open the web interface without signing in. This also disables API authentication, so use it only on a trusted network.
 - For the complete set of available options, use the example config as the reference.
 
+## USB Serial Recovery
+
+For modems initialized at startup, serial I/O errors, command timeouts, and EOF
+close the old serial handle and mark the connection disconnected. Subsequent
+polling or health checks retry opening the configured `com_port` with the same
+baud rate. Each queued command makes up to three opening/initialization attempts,
+with two seconds between failed attempts (device deletion commands use one
+attempt). Later polling and health checks continue recovery if the device remains
+unavailable.
+
+A replacement connection runs the modem initialization commands and restores the
+last successfully configured SMS storage before accepting other commands. Runtime
+reinitialization also closes the current handle and reopens the configured path.
+Commands already attempted on a failed connection return an error instead of being
+replayed, since an SMS send or deletion may have succeeded before its response was
+lost.
+
+Keep using stable device paths such as `/mnt/usb-serial/android/if02` and
+`/mnt/usb-serial/quectel/if02`. The host must make the replacement device nodes
+accessible inside the container; the service reopens those paths without a process
+restart. Devices absent during initial service startup are not discovered by this
+recovery flow.
+
 ## Automatic Device SMS Cleanup
 
 Received SMS messages are automatically removed from the selected SIM or modem

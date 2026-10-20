@@ -4,7 +4,7 @@ use log::{debug, error, info};
 use std::io;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::sync::{mpsc, Mutex, RwLock, Semaphore};
 use tokio_serial::{SerialPortBuilderExt, SerialStream};
 
@@ -27,14 +27,29 @@ const TERMINATORS: &[&[u8]] = &[
 ];
 
 const MAX_RETRIES: u32 = 3;
-const RETRY_DELAY: Duration = Duration::from_millis(500);
+const RETRY_DELAY: Duration = Duration::from_secs(2);
 const MAX_CONCURRENT_COMMANDS: usize = 5;
+
+struct SerialConnection {
+    stream: Option<SerialStream>,
+    state: ConnectionState,
+    sms_storage: Option<SmsStorage>,
+}
+
+impl SerialConnection {
+    fn disconnect(&mut self) {
+        // Dropping the stream releases the old device even if its path was replaced.
+        self.stream = None;
+        self.state = ConnectionState::Disconnected;
+    }
+}
 
 pub struct Modem {
     pub name: String,
     pub com_port: String,
     pub baud_rate: u32,
     command_tx: mpsc::UnboundedSender<ATCommand>,
+    serial_connection: Arc<Mutex<SerialConnection>>,
     pub sim_id: RwLock<Option<String>>,
     inbox_lock: Mutex<()>,
 }
@@ -61,24 +76,25 @@ impl Modem {
         let serial_stream = Self::create_serial_connection(com_port, baud_rate).await?;
 
         let (command_tx, command_rx) = mpsc::unbounded_channel::<ATCommand>();
-        let serial_mutex = Arc::new(Mutex::new(Some(serial_stream)));
-        let connection_state = Arc::new(RwLock::new(ConnectionState::Connected));
+        let serial_connection = Arc::new(Mutex::new(SerialConnection {
+            stream: Some(serial_stream),
+            state: ConnectionState::Connected,
+            sms_storage: None,
+        }));
         let command_semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_COMMANDS));
 
         let name_clone = name.to_string();
         let com_port_clone = com_port.to_string();
-        let serial_mutex_clone = serial_mutex.clone();
-        let connection_state_clone = connection_state.clone();
+        let serial_connection_clone = serial_connection.clone();
         let semaphore_clone = command_semaphore.clone();
 
         tokio::spawn(async move {
             Self::command_processor(
                 command_rx,
-                serial_mutex_clone,
+                serial_connection_clone,
                 &name_clone,
                 &com_port_clone,
                 baud_rate,
-                connection_state_clone,
                 semaphore_clone,
             )
             .await;
@@ -91,6 +107,7 @@ impl Modem {
             com_port: com_port.to_string(),
             baud_rate,
             command_tx,
+            serial_connection,
             sim_id: RwLock::new(None),
             inbox_lock: Mutex::new(()),
         })
@@ -108,11 +125,10 @@ impl Modem {
 
     async fn command_processor(
         mut command_rx: mpsc::UnboundedReceiver<ATCommand>,
-        serial_mutex: Arc<Mutex<Option<SerialStream>>>,
+        serial_connection: Arc<Mutex<SerialConnection>>,
         name: &str,
         com_port: &str,
         baud_rate: u32,
-        connection_state: Arc<RwLock<ConnectionState>>,
         semaphore: Arc<Semaphore>,
     ) {
         let mut futures = FuturesUnordered::new();
@@ -120,21 +136,19 @@ impl Modem {
         loop {
             tokio::select! {
                 Some(at_command) = command_rx.recv() => {
-                    let serial_mutex = serial_mutex.clone();
+                    let serial_connection = serial_connection.clone();
                     let name = name.to_string();
                     let com_port = com_port.to_string();
-                    let connection_state = connection_state.clone();
                     let semaphore = semaphore.clone();
 
                     futures.push(tokio::spawn(async move {
                         let _permit = semaphore.acquire().await;
                         Self::execute_command_with_retry(
-                            serial_mutex,
+                            serial_connection,
                             at_command,
                             &name,
                             &com_port,
                             baud_rate,
-                            connection_state,
                         ).await
                     }));
                 }
@@ -149,60 +163,51 @@ impl Modem {
     }
 
     async fn execute_command_with_retry(
-        serial_mutex: Arc<Mutex<Option<SerialStream>>>,
+        serial_connection: Arc<Mutex<SerialConnection>>,
         mut at_command: ATCommand,
         name: &str,
         com_port: &str,
         baud_rate: u32,
-        connection_state: Arc<RwLock<ConnectionState>>,
     ) {
         while at_command.retries < MAX_RETRIES {
-            {
-                let state = connection_state.read().await;
-                if matches!(*state, ConnectionState::Disconnected) {
-                    drop(state);
-                    Self::attempt_reconnection(
-                        &serial_mutex,
-                        com_port,
-                        baud_rate,
-                        &connection_state,
-                        name,
-                    )
-                    .await;
-                }
-            }
-
-            let result = {
-                let mut serial_guard = serial_mutex.lock().await;
-                if let Some(serial) = serial_guard.as_mut() {
-                    Self::execute_single_command(serial, &at_command.command, name).await
-                } else {
-                    Err(io::Error::new(
-                        io::ErrorKind::NotConnected,
-                        "Serial port not connected",
-                    ))
-                }
-            };
-
-            match result {
-                Ok(response) => {
-                    let _ = at_command.response_tx.send(Ok(response));
-                    return;
-                }
-                Err(e) if e.kind() == io::ErrorKind::NotConnected => {
+            // Opening, initialization, and commands share one lock so no command
+            // can use a stale stream or an incompletely initialized replacement.
+            let mut connection = serial_connection.lock().await;
+            if connection.stream.is_none() {
+                if let Err(err) =
+                    Self::attempt_reconnection(&mut connection, com_port, baud_rate, name).await
+                {
                     at_command.retries += 1;
+                    drop(connection);
                     if at_command.retries < MAX_RETRIES {
                         tokio::time::sleep(RETRY_DELAY).await;
                         continue;
                     }
-                    let _ = at_command.response_tx.send(Err(e));
-                    return;
-                }
-                Err(e) => {
-                    let _ = at_command.response_tx.send(Err(e));
+                    let _ = at_command.response_tx.send(Err(err));
                     return;
                 }
             }
+
+            let result = match connection.stream.as_mut() {
+                Some(serial) => {
+                    Self::execute_single_command(serial, &at_command.command, name).await
+                }
+                None => Err(io::Error::new(
+                    io::ErrorKind::NotConnected,
+                    "Serial port not connected",
+                )),
+            };
+            if let Err(err) = &result {
+                connection.disconnect();
+                error!(
+                    "Serial connection lost for {} on {}: {}",
+                    name, com_port, err
+                );
+            }
+            // A response may be lost after an SMS was sent or deleted. Never
+            // replay a command that reached the transport; recover on the next one.
+            let _ = at_command.response_tx.send(result);
+            return;
         }
 
         let _ = at_command
@@ -211,47 +216,70 @@ impl Modem {
     }
 
     async fn attempt_reconnection(
-        serial_mutex: &Arc<Mutex<Option<SerialStream>>>,
+        connection: &mut SerialConnection,
         com_port: &str,
         baud_rate: u32,
-        connection_state: &Arc<RwLock<ConnectionState>>,
         name: &str,
-    ) {
-        {
-            let mut state = connection_state.write().await;
-            if matches!(*state, ConnectionState::Reconnecting) {
-                return;
-            }
-            *state = ConnectionState::Reconnecting;
-        }
-
+    ) -> io::Result<()> {
+        connection.disconnect();
+        connection.state = ConnectionState::Reconnecting;
         info!("Attempting to reconnect to {} on {}", name, com_port);
 
-        for attempt in 1..=3 {
-            match Self::create_serial_connection(com_port, baud_rate).await {
-                Ok(new_stream) => {
-                    let mut serial_guard = serial_mutex.lock().await;
-                    *serial_guard = Some(new_stream);
+        let result = async {
+            let mut stream = Self::create_serial_connection(com_port, baud_rate).await?;
+            Self::initialize_serial(&mut stream, connection.sms_storage, name).await?;
+            Ok::<_, io::Error>(stream)
+        }
+        .await;
 
-                    let mut state = connection_state.write().await;
-                    *state = ConnectionState::Connected;
-
-                    info!("Successfully reconnected to {} on {}", name, com_port);
-                    return;
-                }
-                Err(e) => {
-                    error!(
-                        "Reconnection attempt {} failed for {}: {}",
-                        attempt, name, e
-                    );
-                    tokio::time::sleep(Duration::from_secs(2)).await;
-                }
+        match result {
+            Ok(stream) => {
+                connection.stream = Some(stream);
+                connection.state = ConnectionState::Connected;
+                info!(
+                    "Successfully reconnected and initialized {} on {}",
+                    name, com_port
+                );
+                Ok(())
+            }
+            Err(err) => {
+                connection.disconnect();
+                error!("Reconnection failed for {} on {}: {}", name, com_port, err);
+                Err(err)
             }
         }
+    }
 
-        let mut state = connection_state.write().await;
-        *state = ConnectionState::Disconnected;
-        error!("Failed to reconnect to {} after multiple attempts", name);
+    async fn initialize_serial(
+        stream: &mut SerialStream,
+        sms_storage: Option<SmsStorage>,
+        name: &str,
+    ) -> io::Result<()> {
+        for (command, description) in Self::init_commands() {
+            if let Err(err) = Self::execute_serial_with_ok(stream, command, name).await {
+                error!("Failed to {} for {}: {}", description, name, err);
+                return Err(err);
+            }
+        }
+        if let Some(storage) = sms_storage {
+            let command = Self::sms_storage_command(storage);
+            Self::execute_serial_with_ok(stream, &command, name).await?;
+        }
+        Ok(())
+    }
+
+    fn sms_storage_command(storage: SmsStorage) -> String {
+        let storage = Self::sms_storage_code(storage);
+        format!("AT+CPMS=\"{0}\",\"{0}\",\"{0}\"\r\n", storage)
+    }
+
+    async fn execute_serial_with_ok(
+        stream: &mut SerialStream,
+        command: &str,
+        name: &str,
+    ) -> io::Result<String> {
+        let response = Self::execute_single_command(stream, command, name).await?;
+        Self::validate_ok_response(response)
     }
 
     async fn execute_single_command(
@@ -260,50 +288,43 @@ impl Modem {
         name: &str,
     ) -> io::Result<String> {
         debug!("TX [{}]: {}", name, Self::format_log(command));
-        serial_stream.write_all(command.as_bytes()).await?;
-        serial_stream.flush().await?;
-
-        Self::read_response_buffered(serial_stream, name).await
+        tokio::time::timeout(Duration::from_secs(30), async {
+            // SerialStream writes directly to the device. Its flush can block
+            // in tcdrain, preventing the timeout from detecting a lost device.
+            serial_stream.write_all(command.as_bytes()).await?;
+            Self::read_response_buffered(serial_stream, name).await
+        })
+        .await
+        .map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::TimedOut,
+                format!("Command timeout for device {}", name),
+            )
+        })?
     }
 
     async fn read_response_buffered(
-        serial_stream: &mut SerialStream,
+        serial_stream: &mut (impl AsyncRead + Unpin),
         name: &str,
     ) -> io::Result<String> {
         let mut buffer = Vec::with_capacity(4096);
         let mut temp_buf = [0u8; 1024];
-        let timeout_duration = Duration::from_secs(30);
 
-        let result = tokio::time::timeout(timeout_duration, async {
-            loop {
-                match serial_stream.read(&mut temp_buf).await {
-                    Ok(0) => break,
-                    Ok(bytes_read) => {
-                        buffer.extend_from_slice(&temp_buf[..bytes_read]);
-
-                        if let Some((terminator, pos)) = Self::find_terminator(&buffer) {
-                            let end_pos = pos + terminator.len();
-                            let response = String::from_utf8_lossy(&buffer[..end_pos]).into_owned();
-                            debug!("RX [{}]: {}", name, Self::format_log(&response));
-                            return Ok(response);
-                        }
-                    }
-                    Err(e) => return Err(e),
-                }
+        loop {
+            let bytes_read = serial_stream.read(&mut temp_buf).await?;
+            if bytes_read == 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    format!("Serial connection closed for device {}", name),
+                ));
             }
-
-            let response = String::from_utf8_lossy(&buffer).into_owned();
-            debug!("RX [{}]: {}", name, Self::format_log(&response));
-            Ok(response)
-        })
-        .await;
-
-        match result {
-            Ok(response) => response,
-            Err(_) => Err(io::Error::new(
-                io::ErrorKind::TimedOut,
-                format!("Command timeout for device {}", name),
-            )),
+            buffer.extend_from_slice(&temp_buf[..bytes_read]);
+            if let Some((terminator, pos)) = Self::find_terminator(&buffer) {
+                let end_pos = pos + terminator.len();
+                let response = String::from_utf8_lossy(&buffer[..end_pos]).into_owned();
+                debug!("RX [{}]: {}", name, Self::format_log(&response));
+                return Ok(response);
+            }
         }
     }
 
@@ -320,44 +341,62 @@ impl Modem {
     }
 
     pub async fn init_modem(&mut self, sms_storage: Option<SmsStorage>) -> io::Result<()> {
+        {
+            let mut connection = self.serial_connection.lock().await;
+            connection.sms_storage = sms_storage;
+        }
         for (cmd, description) in Self::init_commands() {
-            if let Err(e) = self.send_command_with_ok(cmd).await {
-                error!("Failed to {}: {}", description, e);
-                return Err(e);
+            if let Err(err) = self.send_command_with_ok(cmd).await {
+                error!("Failed to {}: {}", description, err);
+                return Err(err);
             }
         }
-
         if let Some(storage) = sms_storage {
             self.configure_sms_storage(storage).await?;
         }
-
-        if let Err(e) = self.refresh_sim_info().await {
+        if let Err(err) = self.refresh_sim_info().await {
             log::warn!(
                 "Failed to initialize SIM info for device {}: {}",
                 self.name,
-                e
+                err
             );
         }
-
         Ok(())
     }
 
     async fn configure_sms_storage(&self, storage: SmsStorage) -> io::Result<()> {
-        let storage_str = Self::sms_storage_code(storage);
-
-        let cmd = format!("AT+CPMS=\"{0}\",\"{0}\",\"{0}\"\r\n", storage_str);
-
-        match self.send_command_with_ok(&cmd).await {
+        let mut connection = self.serial_connection.lock().await;
+        if connection.stream.is_none() {
+            Self::attempt_reconnection(&mut connection, &self.com_port, self.baud_rate, &self.name)
+                .await?;
+        }
+        let result = match connection.stream.as_mut() {
+            Some(stream) => {
+                Self::execute_serial_with_ok(
+                    stream,
+                    &Self::sms_storage_command(storage),
+                    &self.name,
+                )
+                .await
+            }
+            None => Err(io::Error::new(
+                io::ErrorKind::NotConnected,
+                "Serial port not connected",
+            )),
+        };
+        match result {
             Ok(_) => {
+                connection.sms_storage = Some(storage);
                 info!(
                     "SMS storage set to {} for device {}",
-                    storage_str, self.name
+                    Self::sms_storage_code(storage),
+                    self.name
                 );
                 Ok(())
             }
-            Err(e) => {
-                error!("Failed to set SMS storage: {}", e);
-                Err(e)
+            Err(err) => {
+                connection.disconnect();
+                Err(err)
             }
         }
     }
@@ -404,27 +443,36 @@ impl Modem {
         self.send_command(&command).await
     }
 
+    /// Close the current serial handle, reopen the configured path, and restore
+    /// module settings before allowing further commands to use the connection.
     pub async fn reinitialize_runtime(&self, sms_storage: Option<SmsStorage>) -> io::Result<()> {
         let _inbox_guard = self.inbox_lock.lock().await;
-        for (cmd, description) in Self::init_commands() {
-            if let Err(e) = self.send_command_with_ok(cmd).await {
-                error!("Failed to {}: {}", description, e);
-                return Err(e);
+        {
+            let mut connection = self.serial_connection.lock().await;
+            connection.sms_storage = sms_storage;
+            connection.disconnect();
+            for attempt in 1..=MAX_RETRIES {
+                match Self::attempt_reconnection(
+                    &mut connection,
+                    &self.com_port,
+                    self.baud_rate,
+                    &self.name,
+                )
+                .await
+                {
+                    Ok(()) => break,
+                    Err(err) if attempt == MAX_RETRIES => return Err(err),
+                    Err(_) => tokio::time::sleep(RETRY_DELAY).await,
+                }
             }
         }
-
-        if let Some(storage) = sms_storage {
-            self.configure_sms_storage(storage).await?;
-        }
-
-        if let Err(e) = self.refresh_sim_info().await {
+        if let Err(err) = self.refresh_sim_info().await {
             log::warn!(
                 "Failed to refresh SIM info during runtime reinitialization for device {}: {}",
                 self.name,
-                e
+                err
             );
         }
-
         Ok(())
     }
 
@@ -499,7 +547,10 @@ impl Modem {
 
     async fn send_command_with_ok(&self, command: &str) -> io::Result<String> {
         let response = self.send_command(command).await?;
+        Self::validate_ok_response(response)
+    }
 
+    fn validate_ok_response(response: String) -> io::Result<String> {
         if response.contains("OK\r\n") {
             Ok(response)
         } else {
@@ -785,26 +836,7 @@ impl Modem {
 
     pub async fn set_sms_storage(&self, sms_storage: SmsStorage) -> io::Result<()> {
         let _inbox_guard = self.inbox_lock.lock().await;
-        let storage_str = Self::sms_storage_code(sms_storage);
-
-        let cmd = format!("AT+CPMS=\"{0}\",\"{0}\",\"{0}\"\r\n", storage_str);
-
-        match self.send_command_with_ok(&cmd).await {
-            Ok(_) => {
-                info!(
-                    "SMS storage changed to {} for device {}",
-                    storage_str, self.name
-                );
-                Ok(())
-            }
-            Err(e) => {
-                error!(
-                    "Failed to change SMS storage to {} for device {}: {}",
-                    storage_str, self.name, e
-                );
-                Err(e)
-            }
-        }
+        self.configure_sms_storage(sms_storage).await
     }
 
     pub async fn get_sms_storage_status(&self) -> io::Result<Option<String>> {
@@ -836,6 +868,33 @@ impl InboxDevice for Modem {
 mod tests {
     use super::Modem;
     use std::io;
+    use tokio::io::AsyncWriteExt;
+
+    #[tokio::test]
+    async fn eof_is_an_error_even_after_a_partial_response() {
+        for partial in [b"".as_slice(), b"\r\n+CMGL: 1,0,,20\r\n001122"] {
+            let (mut reader, mut writer) = tokio::io::duplex(64);
+            writer.write_all(partial).await.unwrap();
+            drop(writer);
+            let err = Modem::read_response_buffered(&mut reader, "eof-test")
+                .await
+                .unwrap_err();
+            assert_eq!(err.kind(), io::ErrorKind::UnexpectedEof);
+        }
+    }
+
+    #[tokio::test]
+    async fn complete_response_still_succeeds_before_eof() {
+        let (mut reader, mut writer) = tokio::io::duplex(64);
+        writer.write_all(b"\r\nOK\r\n").await.unwrap();
+        drop(writer);
+        assert_eq!(
+            Modem::read_response_buffered(&mut reader, "response-test")
+                .await
+                .unwrap(),
+            "\r\nOK\r\n"
+        );
+    }
 
     #[test]
     fn soft_restart_accepts_expected_disconnect_errors() {
@@ -852,3 +911,7 @@ mod tests {
         assert!(result.is_err());
     }
 }
+
+#[cfg(all(test, unix))]
+#[path = "core/serial_tests.rs"]
+mod serial_tests;
