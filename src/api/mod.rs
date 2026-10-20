@@ -537,7 +537,7 @@ async fn refresh_sim_sms(
     State(modem_manager): State<ModemManagerRef>,
 ) -> Response {
     match modem_manager
-        .read_sms_sync_insert(&sim_id, SmsType::RecUnread)
+        .read_sms_sync_insert(&sim_id, SmsType::All)
         .await
     {
         Ok(_) => (StatusCode::OK).into_response(),

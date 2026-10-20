@@ -1,3 +1,5 @@
+pub(crate) mod inbox;
+
 use anyhow::Result;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
@@ -767,7 +769,7 @@ pub async fn db_init() -> Result<()> {
 }
 
 /// Retrieves the database connection pool
-fn get_pool() -> Result<&'static SqlitePool> {
+pub(crate) fn get_pool() -> Result<&'static SqlitePool> {
     POOL.get()
         .ok_or(anyhow::anyhow!("Database not initialized"))
 }

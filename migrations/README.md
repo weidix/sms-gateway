@@ -31,5 +31,13 @@ This migration creates the complete database structure for the SMS Gateway with 
 
 ### Fresh Installation
 
-For fresh installations, this single migration file creates the complete database structure.
-No previous migration files are needed.
+For fresh installations, SQLx applies all migration files in timestamp order.
+Existing installations apply only migrations that have not already been recorded.
+
+## Automatic Device SMS Cleanup
+
+`20261020000001_modem_sms_receipts.sql` adds `modem_sms_receipts`, keyed by SIM,
+selected storage, and device index. It stores the exact PDU acknowledged in the
+same transaction as its archived message. This lets cleanup safely resume after
+restarts and partial multipart deletions without importing duplicate history.
+Existing SMS, contact, and SIM records are preserved.

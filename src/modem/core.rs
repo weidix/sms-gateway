@@ -14,6 +14,7 @@ use crate::db::{Contact, ModemSMS, SimCard, Sms};
 use crate::decode::parse_pdu_sms;
 use crate::webhook;
 
+use super::inbox::{self, InboxDevice};
 use super::pdu::build_pdu;
 use super::types::*;
 
@@ -35,6 +36,7 @@ pub struct Modem {
     pub baud_rate: u32,
     command_tx: mpsc::UnboundedSender<ATCommand>,
     pub sim_id: RwLock<Option<String>>,
+    inbox_lock: Mutex<()>,
 }
 
 impl Modem {
@@ -90,6 +92,7 @@ impl Modem {
             baud_rate,
             command_tx,
             sim_id: RwLock::new(None),
+            inbox_lock: Mutex::new(()),
         })
     }
 
@@ -396,11 +399,13 @@ impl Modem {
     }
 
     pub async fn execute_at_command(&self, command: &str) -> io::Result<String> {
+        let _inbox_guard = self.inbox_lock.lock().await;
         let command = Self::normalize_at_command(command);
         self.send_command(&command).await
     }
 
     pub async fn reinitialize_runtime(&self, sms_storage: Option<SmsStorage>) -> io::Result<()> {
+        let _inbox_guard = self.inbox_lock.lock().await;
         for (cmd, description) in Self::init_commands() {
             if let Err(e) = self.send_command_with_ok(cmd).await {
                 error!("Failed to {}: {}", description, e);
@@ -424,6 +429,7 @@ impl Modem {
     }
 
     pub async fn soft_restart(&self) -> io::Result<()> {
+        let _inbox_guard = self.inbox_lock.lock().await;
         Self::validate_soft_restart_result(self.send_command("AT+CFUN=1,1\r\n").await)
     }
 
@@ -433,7 +439,13 @@ impl Modem {
         let at_command = ATCommand {
             command: command.to_string(),
             response_tx,
-            retries: 0,
+            // Deletion responses can be lost after success. Re-read the slot on
+            // the next scan instead of blindly retrying a destructive command.
+            retries: if command.starts_with("AT+CMGD=") {
+                MAX_RETRIES - 1
+            } else {
+                0
+            },
         };
 
         self.command_tx
@@ -574,46 +586,41 @@ impl Modem {
         Ok(())
     }
 
+    /// Archives received SMS, cleans up device copies, and notifies newly saved conversations.
     pub async fn read_sms_async_insert(
         &self,
         sms_type: SmsType,
         sse_manager: Arc<SseManager>,
         webhook_manager: Option<webhook::WebhookManager>,
     ) -> anyhow::Result<()> {
-        let sms_list = self.read_sms(sms_type).await?;
-
-        if sms_list.is_empty() {
-            return Ok(());
+        let archived = self.archive_device_sms(sms_type).await?;
+        if let Some(webhook_manager) = webhook_manager {
+            for sms in archived.messages {
+                if let Err(error) = webhook_manager.send(sms) {
+                    log::error!("Failed to enqueue archived SMS webhook: {}", error);
+                }
+            }
         }
-
-        let webhook_future = async {
-            if let Some(webhook_mgr) = webhook_manager {
-                for sms in &sms_list {
-                    if let Err(e) = webhook_mgr.send(sms.clone()) {
-                        log::error!("Failed to send webhook: {}", e);
-                    }
-                }
+        if !archived.contact_ids.is_empty() {
+            match crate::db::Conversation::query_by_contact_ids(&archived.contact_ids).await {
+                Ok(conversations) => sse_manager.send(conversations),
+                Err(error) => log::error!("Failed to load archived SMS conversations: {}", error),
             }
-        };
-
-        let db_future = async {
-            match ModemSMS::bulk_insert(&sms_list).await {
-                Ok(contact_ids) => {
-                    if let Ok(conversations) =
-                        crate::db::Conversation::query_by_contact_ids(&contact_ids).await
-                    {
-                        sse_manager.send(conversations);
-                    }
-                }
-                Err(e) => log::error!("Insert SMS error: {}", e),
-            }
-        };
-
-        tokio::join!(webhook_future, db_future);
+        }
         Ok(())
     }
 
+    async fn archive_device_sms(
+        &self,
+        sms_type: SmsType,
+    ) -> anyhow::Result<crate::db::inbox::ArchivedMessages> {
+        let _inbox_guard = self.inbox_lock.lock().await;
+        let sim_id = self.sim_id.read().await.clone().unwrap_or_default();
+        inbox::synchronize(self, crate::db::get_pool()?, &sim_id, sms_type).await
+    }
+
     pub async fn read_sms(&self, sms_type: SmsType) -> io::Result<Vec<ModemSMS>> {
+        let _inbox_guard = self.inbox_lock.lock().await;
         let command = format!("AT+CMGL={}\r\n", sms_type.to_at_command_pdu());
         let response = self.send_command_with_ok(&command).await?;
 
@@ -715,11 +722,9 @@ impl Modem {
             .replace("\n", "\\n")
     }
 
+    /// Archives received SMS before deleting their device copies, without notifications.
     pub async fn read_sms_sync_insert(&self, sms_type: SmsType) -> anyhow::Result<()> {
-        let sms_list = self.read_sms(sms_type).await?;
-        if !sms_list.is_empty() {
-            ModemSMS::bulk_insert(&sms_list).await?;
-        }
+        self.archive_device_sms(sms_type).await?;
         Ok(())
     }
 
@@ -779,6 +784,7 @@ impl Modem {
     }
 
     pub async fn set_sms_storage(&self, sms_storage: SmsStorage) -> io::Result<()> {
+        let _inbox_guard = self.inbox_lock.lock().await;
         let storage_str = Self::sms_storage_code(sms_storage);
 
         let cmd = format!("AT+CPMS=\"{0}\",\"{0}\",\"{0}\"\r\n", storage_str);
@@ -814,6 +820,15 @@ impl Modem {
     pub async fn get_sms_storage_overview(&self) -> io::Result<Option<SmsStorageStatus>> {
         self.get_modem_info("AT+CPMS?\r\n", SmsStorageStatus::from_response)
             .await
+    }
+}
+
+impl InboxDevice for Modem {
+    fn command(
+        &self,
+        command: &str,
+    ) -> impl std::future::Future<Output = io::Result<String>> + Send {
+        self.send_command_with_ok(command)
     }
 }
 

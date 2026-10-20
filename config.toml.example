@@ -12,7 +12,7 @@ username = "admin"               # Required when login_required is true
 password = "your_secure_password" # Required when login_required is true
 
 # SMS reading frequency in seconds
-read_sms_frequency = 30          # How often to check for new SMS messages
+read_sms_frequency = 30          # Poll all received SMS; delete device copies after successful archival
 
 # Modem health supervisor configuration
 health_check_frequency = 30      # How often to check modem health

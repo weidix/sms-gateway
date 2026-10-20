@@ -1,4 +1,5 @@
 pub mod core;
+mod inbox;
 #[cfg(not(feature = "mock-data"))]
 pub mod manager;
 #[cfg(feature = "mock-data")]

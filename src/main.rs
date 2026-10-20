@@ -7,7 +7,7 @@ use db::db_init;
 use flexi_logger::{
     colored_detailed_format, Age, Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming,
 };
-use health::state::HealthStatus;
+use health::state::{FailureReason, HealthSnapshot, HealthStatus};
 use log::LevelFilter;
 use modem::{ModemManager, SmsType};
 use structopt::StructOpt;
@@ -98,8 +98,7 @@ async fn read_sms_worker(
     loop {
         for sim_id in modem_manager.get_sim_ids().await {
             let snapshot = health_supervisor.snapshot_for(&sim_id).await;
-            if !should_poll_sms_for_health_status(snapshot.as_ref().map(|item| item.current_status))
-            {
+            if !should_poll_sms(snapshot.as_ref()) {
                 log::debug!(
                     "Skipping SMS polling for {} while health supervisor is in {:?}",
                     sim_id,
@@ -111,7 +110,7 @@ async fn read_sms_worker(
             if let Err(err) = modem_manager
                 .read_sms_async_insert(
                     &sim_id,
-                    SmsType::RecUnread,
+                    SmsType::All,
                     sse_manager.clone(),
                     webhook_manager.clone(),
                 )
@@ -125,11 +124,22 @@ async fn read_sms_worker(
     }
 }
 
-fn should_poll_sms_for_health_status(status: Option<HealthStatus>) -> bool {
-    !matches!(
-        status,
-        Some(HealthStatus::Recovering) | Some(HealthStatus::Critical)
-    )
+fn should_poll_sms(snapshot: Option<&HealthSnapshot>) -> bool {
+    let Some(snapshot) = snapshot else {
+        return true;
+    };
+    match snapshot.current_status {
+        HealthStatus::Healthy | HealthStatus::Degraded => true,
+        HealthStatus::Recovering => false,
+        // Importing and deleting archived messages is how a full inbox recovers.
+        HealthStatus::Critical => {
+            snapshot
+                .failure_reasons
+                .iter()
+                .all(|reason| *reason == FailureReason::SmsStorageFull)
+                && !snapshot.failure_reasons.is_empty()
+        }
+    }
 }
 
 #[derive(Debug, StructOpt)]
@@ -324,20 +334,24 @@ mod main_tests {
     }
 
     #[test]
-    fn sms_polling_pauses_while_supervisor_is_recovering_or_critical() {
-        assert!(should_poll_sms_for_health_status(None));
-        assert!(should_poll_sms_for_health_status(Some(
-            HealthStatus::Healthy
-        )));
-        assert!(should_poll_sms_for_health_status(Some(
-            HealthStatus::Degraded
-        )));
-        assert!(!should_poll_sms_for_health_status(Some(
-            HealthStatus::Recovering
-        )));
-        assert!(!should_poll_sms_for_health_status(Some(
-            HealthStatus::Critical
-        )));
+    fn sms_polling_can_drain_a_full_device_without_polling_other_critical_failures() {
+        assert!(should_poll_sms(None));
+        let mut snapshot = HealthSnapshot::new();
+        assert!(should_poll_sms(Some(&snapshot)));
+        snapshot.current_status = HealthStatus::Degraded;
+        assert!(should_poll_sms(Some(&snapshot)));
+        snapshot.current_status = HealthStatus::Recovering;
+        assert!(!should_poll_sms(Some(&snapshot)));
+        snapshot.current_status = HealthStatus::Critical;
+        assert!(!should_poll_sms(Some(&snapshot)));
+        snapshot
+            .failure_reasons
+            .insert(FailureReason::SmsStorageFull);
+        assert!(should_poll_sms(Some(&snapshot)));
+        snapshot
+            .failure_reasons
+            .insert(FailureReason::AtUnreachable);
+        assert!(!should_poll_sms(Some(&snapshot)));
     }
 
     #[test]
