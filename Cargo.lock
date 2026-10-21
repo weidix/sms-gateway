@@ -2513,7 +2513,7 @@ dependencies = [
 
 [[package]]
 name = "sms-gateway"
-version = "0.3.5"
+version = "0.3.6"
 dependencies = [
  "anyhow",
  "axum",

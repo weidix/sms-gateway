@@ -11,3 +11,5 @@
 /config.toml
 .codex
 AGENTS.md
+/frontend/.svelte-kit
+/.pnpm-store/
