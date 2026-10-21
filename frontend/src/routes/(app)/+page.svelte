@@ -471,16 +471,35 @@
       padding: 12px 16px 18px;
     }
 
+    .pane--list {
+      animation: pane-in-left 190ms var(--ease-out) both;
+    }
+
     .pane--thread {
       display: none;
     }
 
     .workspace--thread-open .pane--thread {
       display: flex;
+      animation: pane-in-right 200ms var(--ease-out) both;
     }
 
     .workspace--thread-open .pane--list {
       display: none;
+    }
+  }
+
+  @keyframes pane-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(18px);
+    }
+  }
+
+  @keyframes pane-in-left {
+    from {
+      opacity: 0;
+      transform: translateX(-14px);
     }
   }
 </style>

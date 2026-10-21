@@ -101,6 +101,7 @@
 
   :global(.select__content) {
     z-index: 80;
+    animation: select-in 140ms var(--ease-out);
     min-width: var(--bits-select-anchor-width, 180px);
     max-width: min(360px, calc(100vw - 24px));
     max-height: min(300px, var(--bits-select-content-available-height, 300px));
@@ -140,6 +141,24 @@
 
   :global(.select__item[data-disabled]) {
     opacity: 0.45;
+  }
+
+  @keyframes select-in {
+    from {
+      opacity: 0;
+      transform: translateY(-3px) scale(0.985);
+    }
+  }
+
+  @keyframes select-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(3px) scale(0.985);
+    }
+  }
+
+  :global(.select__content[data-side='top']) {
+    animation-name: select-in-up;
   }
 
   :global(.select__label) {

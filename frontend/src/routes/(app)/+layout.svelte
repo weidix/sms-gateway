@@ -78,6 +78,7 @@
   }
 
   .topbar {
+    view-transition-name: topbar;
     position: relative;
     z-index: 10;
     display: flex;
@@ -146,6 +147,8 @@
   }
 
   .shell__main {
+    view-transition-name: page;
+    background: var(--paper);
     flex: 1;
     min-height: 0;
     height: calc(100dvh - var(--topbar-h));

@@ -1,5 +1,7 @@
 <script>
   import { tick } from 'svelte';
+  import { fly } from 'svelte/transition';
+  import { cubicOut } from 'svelte/easing';
   import Column from './Column.svelte';
   import MessageRow from './MessageRow.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -96,7 +98,9 @@
     {/if}
   {/snippet}
 
-  {#if !conversation}
+  {#key conversation?.contact?.id ?? 'none'}
+    <div class="thread-switch" in:fly={{ y: 6, duration: 170, easing: cubicOut }}>
+      {#if !conversation}
     <div class="thread-state">
       <EmptyState
         icon="message"
@@ -144,10 +148,20 @@
         </div>
       {/if}
     </div>
-  {/if}
+      {/if}
+    </div>
+  {/key}
 </Column>
 
 <style>
+  .thread-switch {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
   .thread {
     display: flex;
     flex-direction: column;

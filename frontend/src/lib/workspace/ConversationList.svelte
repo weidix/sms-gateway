@@ -102,7 +102,9 @@
     background: transparent;
     color: inherit;
     text-align: left;
-    transition: background var(--dur) ease;
+    transition:
+      background var(--dur) ease,
+      transform var(--dur-fast) var(--ease-out);
   }
 
 
@@ -112,6 +114,10 @@
 
   .conv:focus-visible {
     outline-offset: -2px;
+  }
+
+  .conv:active {
+    transform: scale(0.994);
   }
 
   .conv--active {

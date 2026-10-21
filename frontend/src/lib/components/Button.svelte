@@ -59,7 +59,8 @@
     transition:
       background var(--dur) ease,
       border-color var(--dur) ease,
-      color var(--dur) ease;
+      color var(--dur) ease,
+      transform var(--dur-fast) var(--ease-out);
   }
 
   .btn:hover:not(:disabled) {
@@ -68,7 +69,7 @@
   }
 
   .btn:active:not(:disabled) {
-    transform: translateY(0.5px);
+    transform: translateY(0.5px) scale(0.99);
   }
 
   .btn:disabled {

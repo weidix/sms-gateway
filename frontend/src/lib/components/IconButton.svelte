@@ -42,12 +42,17 @@
     transition:
       background var(--dur) ease,
       color var(--dur) ease,
-      border-color var(--dur) ease;
+      border-color var(--dur) ease,
+      transform var(--dur-fast) var(--ease-out);
   }
 
   .icon-btn:hover:not(:disabled) {
     background: var(--sunken);
     color: var(--ink);
+  }
+
+  .icon-btn:active:not(:disabled) {
+    transform: scale(0.92);
   }
 
   .icon-btn:disabled {

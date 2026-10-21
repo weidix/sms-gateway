@@ -1,4 +1,6 @@
 <script>
+  import { fly, fade } from 'svelte/transition';
+  import { cubicOut } from 'svelte/easing';
   import { toast } from '../stores/toast.svelte.js';
   import Icon from './Icon.svelte';
 
@@ -7,7 +9,12 @@
 
 <section class="toaster" aria-live="polite" aria-label="Notifications">
   {#each toast.items as entry (entry.id)}
-    <div class="toast toast--{entry.tone}" role="status">
+    <div
+      class="toast toast--{entry.tone}"
+      role="status"
+      in:fly={{ y: 8, duration: 190, easing: cubicOut }}
+      out:fade={{ duration: 120 }}
+    >
       <span class="toast__icon"><Icon name={toneIcon[entry.tone]} size={14} /></span>
       <div class="toast__text">
         {#if entry.title}<span class="toast__title">{entry.title}</span>{/if}
@@ -51,7 +58,6 @@
     background: var(--raised);
     color: var(--ink);
     box-shadow: var(--shadow-pop);
-    animation: toast-in 160ms ease-out;
   }
 
   .toast__icon {
@@ -118,13 +124,6 @@
     .toaster {
       right: 16px;
       bottom: 176px;
-    }
-  }
-
-  @keyframes toast-in {
-    from {
-      opacity: 0;
-      transform: translateY(6px);
     }
   }
 </style>

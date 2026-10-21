@@ -48,7 +48,7 @@
     inset: 0;
     z-index: 60;
     background: rgba(18, 22, 19, 0.38);
-    animation: fade-in 120ms ease-out;
+    animation: fade-in 160ms var(--ease-out);
   }
 
   :global(.dialog) {
@@ -65,7 +65,7 @@
     border-radius: var(--radius-lg);
     background: var(--raised);
     box-shadow: var(--shadow-pop);
-    animation: dialog-in 140ms cubic-bezier(0.2, 0.8, 0.3, 1);
+    animation: dialog-in 190ms var(--ease-out);
   }
 
   :global(.dialog--sm) {
@@ -166,7 +166,7 @@
   @keyframes dialog-in {
     from {
       opacity: 0;
-      transform: translate(-50%, -48%) scale(0.985);
+      transform: translate(-50%, -49%) scale(0.98);
     }
   }
 </style>

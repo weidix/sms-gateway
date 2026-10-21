@@ -58,6 +58,11 @@
 
   --topbar-h: 56px;
   --dur: 140ms;
+  --dur-fast: 120ms;
+  --dur-page: 200ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-move: cubic-bezier(0.22, 0.61, 0.36, 1);
 
   --shadow-card: 0 1px 2px rgba(20, 26, 22, 0.05), 0 16px 36px -30px rgba(20, 26, 22, 0.35);
   --shadow-card-hover: 0 2px 4px rgba(20, 26, 22, 0.06), 0 24px 46px -30px rgba(20, 26, 22, 0.42);
@@ -356,6 +361,89 @@ svg {
 @media (max-width: 760px) {
   .page {
     padding: 18px 16px 26px;
+  }
+}
+
+/* Route changes are cross-faded and slid in the navigation direction. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 1ms;
+}
+
+::view-transition-old(topbar),
+::view-transition-new(topbar) {
+  animation: none;
+}
+
+::view-transition-old(page) {
+  animation: vt-page-out 150ms var(--ease-in) both;
+}
+
+::view-transition-new(page) {
+  animation: vt-page-in 220ms var(--ease-out) both;
+}
+
+html[data-nav='forward']::view-transition-old(page) {
+  animation-name: vt-page-out-forward;
+}
+
+html[data-nav='forward']::view-transition-new(page) {
+  animation-name: vt-page-in-forward;
+}
+
+html[data-nav='back']::view-transition-old(page) {
+  animation-name: vt-page-out-back;
+}
+
+html[data-nav='back']::view-transition-new(page) {
+  animation-name: vt-page-in-back;
+}
+
+/* Keep both snapshots opaque: the incoming page slides over the outgoing one,
+   so a mid-transition frame never shows two screens ghosted together. */
+@keyframes vt-page-out {
+  to {
+    transform: translateX(-18px);
+  }
+}
+
+@keyframes vt-page-in {
+  from {
+    transform: translateX(18px);
+  }
+}
+
+@keyframes vt-page-out-forward {
+  to {
+    transform: translateX(-18px);
+  }
+}
+
+@keyframes vt-page-in-forward {
+  from {
+    transform: translateX(18px);
+  }
+}
+
+@keyframes vt-page-out-back {
+  to {
+    transform: translateX(18px);
+  }
+}
+
+@keyframes vt-page-in-back {
+  from {
+    transform: translateX(-18px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root),
+  ::view-transition-old(page),
+  ::view-transition-new(page),
+  ::view-transition-group(page) {
+    animation-duration: 1ms !important;
   }
 }
 

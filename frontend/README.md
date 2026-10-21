@@ -87,7 +87,13 @@ quiet and modern, not like hardware instrumentation. Colour is reserved for **st
   right, body scrolls inside instead of overflowing the dialog.
 - Empty, loading, and failure states are mandatory for each data region. Never render a
   blank panel.
-- Motion is limited to 130–160ms state transitions and respects `prefers-reduced-motion`.
+- Motion is limited to 120–240ms state transitions and respects
+  `prefers-reduced-motion`. Route changes use the View Transitions API with an opaque,
+  direction-aware push: Inbox → Fleet slides in from the right, returning slides from the
+  left, while the top bar stays pinned. In-thread switches rise 6px and fade, phone
+  list/thread panes slide in from their travel direction, dialogs/selects scale-fade from
+  their anchor, toast entries rise and leave with a short fade. Use only transform/opacity
+  for moving layers so layout never reflows mid-animation.
 
 ## Restraint — remove everything that does not help the task
 
