@@ -12,6 +12,7 @@
   import {
     PAGE_SIZE,
     createOutgoingMessage,
+    mergeConversations,
     mergeNewestMessages,
     mergeOlderMessages,
     normalizePage,
@@ -327,19 +328,21 @@
     }
   }
 
-  /** @param {unknown[]} next */
+  /** @param {unknown[]} next Partial SSE update, or a full history refresh. */
   function applyConversations(next) {
     if (!Array.isArray(next)) return;
     const previous = selectedConversation;
     const previousPreview = previous?.sms_preview?.timestamp ?? null;
-    conversations = next;
+    // The SSE payload contains only the conversations that just archived an
+    // SMS. Replacing the sidebar with it dropped every other contact.
+    conversations = mergeConversations(conversations, next);
     listState = 'ready';
     listError = '';
-    if (selectedId && !next.some((item) => item.contact?.id === selectedId)) {
+    if (selectedId && !conversations.some((item) => item.contact?.id === selectedId)) {
       closeThread();
       return;
     }
-    const updated = next.find((item) => item.contact?.id === selectedId);
+    const updated = conversations.find((item) => item.contact?.id === selectedId);
     const nextPreview = updated?.sms_preview?.timestamp ?? null;
     if (
       selectedId &&

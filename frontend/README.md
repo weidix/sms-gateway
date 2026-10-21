@@ -7,6 +7,7 @@ binary with `rust-embed`. `pnpm build` is the only integration point the server 
 pnpm install
 pnpm dev      # http://localhost:5173, proxies /api to http://localhost:8951
 pnpm build    # writes dist/index.html + dist/_app/...
+pnpm test     # node:test checks for workspace message merging
 ```
 
 The app runs client-side only (`ssr = false`); `dist/index.html` is the SPA fallback and

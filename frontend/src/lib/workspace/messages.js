@@ -49,6 +49,26 @@ export function mergeOlderMessages(existing = [], older = []) {
 }
 
 /**
+ * Merges partial conversation updates (the SSE stream only carries the
+ * conversations that just archived an SMS) into the full sidebar list.
+ * @param {Array<Record<string, any>>} existing
+ * @param {Array<Record<string, any>>} incoming
+ */
+export function mergeConversations(existing = [], incoming = []) {
+  if (!Array.isArray(incoming)) return existing;
+  const byContact = new Map();
+  for (const conversation of existing) {
+    if (conversation?.contact?.id) byContact.set(conversation.contact.id, conversation);
+  }
+  for (const conversation of incoming) {
+    if (conversation?.contact?.id) byContact.set(conversation.contact.id, conversation);
+  }
+  return [...byContact.values()].sort(
+    (a, b) => messageTime(b?.sms_preview?.timestamp) - messageTime(a?.sms_preview?.timestamp)
+  );
+}
+
+/**
  * Replaces the newest page while keeping older loaded pages and in-flight
  * optimistic messages.
  * @param {Array<Record<string, any>>} existing

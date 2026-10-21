@@ -1,12 +1,13 @@
 {
   "name": "sms-gateway-frontend",
   "private": true,
-  "version": "0.3.7",
+  "version": "0.3.8",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test src/lib/workspace/messages.test.js"
   },
   "packageManager": "pnpm@11.25.0",
   "dependencies": {
