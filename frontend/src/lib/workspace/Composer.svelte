@@ -15,6 +15,8 @@
     onretry
   } = $props();
 
+  const MAX_EDITOR_HEIGHT = 140;
+
   const lineOptions = $derived(
     sims.map((sim) => ({ value: sim.id, label: simDisplayName(sim, sim.id) }))
   );
@@ -23,6 +25,26 @@
   const linePlaceholder = $derived(
     simsState === 'loading' ? 'Loading…' : simsState === 'error' ? 'Lines unavailable' : 'No line'
   );
+
+  let fieldWrap = $state(null);
+
+  /** @param {HTMLTextAreaElement} textarea */
+  function fitEditor(textarea) {
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, MAX_EDITOR_HEIGHT)}px`;
+  }
+
+  /** @param {Event & { currentTarget: HTMLTextAreaElement }} event */
+  function handleInput(event) {
+    fitEditor(event.currentTarget);
+  }
+
+  // Shrink back after sending or clearing the draft.
+  $effect(() => {
+    value;
+    fitEditor(fieldWrap?.querySelector('textarea') ?? null);
+  });
 
   /** @param {KeyboardEvent} event */
   function handleKeydown(event) {
@@ -36,7 +58,19 @@
 </script>
 
 <div class="composer">
-  <div class="composer__row">
+  <div class="composer__field" bind:this={fieldWrap}>
+    <label class="sr-only" for="composer-message">Message</label>
+    <Textarea
+      id="composer-message"
+      bind:value
+      rows={1}
+      placeholder="Write a message…"
+      onkeydown={handleKeydown}
+      oninput={handleInput}
+    />
+  </div>
+
+  <div class="composer__tools">
     <div class="composer__line">
       <Select
         bind:value={simId}
@@ -47,16 +81,7 @@
       />
     </div>
 
-    <label class="sr-only" for="composer-message">Message</label>
-    <div class="composer__field">
-      <Textarea
-        id="composer-message"
-        bind:value
-        rows={2}
-        placeholder="Write a message…"
-        onkeydown={handleKeydown}
-      />
-    </div>
+    <span class="composer__hint">Enter to send · Shift + Enter for a new line</span>
 
     <div class="composer__send">
       <Button
@@ -89,21 +114,63 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 14px 16px;
+    padding: 12px 16px 14px;
     min-width: 0;
   }
 
-  .composer__row {
-    display: grid;
-    grid-template-columns: 152px minmax(0, 1fr) auto;
-    align-items: end;
+  .composer__field {
+    min-width: 0;
+  }
+
+  /*
+   * The editor owns a full row and grows upward as text wraps. There is no
+   * manual resize handle: dragging it on a bottom-docked composer is what made
+   * the input grow "upwards" unexpectedly. Height is capped and scrolls after
+   * the cap.
+   */
+  .composer__field :global(textarea) {
+    display: block;
+    width: 100%;
+    min-height: 44px !important;
+    height: 44px;
+    max-height: 140px;
+    padding: 10px 14px !important;
+    line-height: 1.55 !important;
+    resize: none !important;
+    overflow-y: auto;
+  }
+
+  .composer__tools {
+    display: flex;
+    align-items: center;
     gap: 10px;
     min-width: 0;
   }
 
-  .composer__line,
-  .composer__field {
+  .composer__line {
+    flex: 0 0 200px;
     min-width: 0;
+  }
+
+  .composer__hint {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--muted);
+    font-size: var(--text-2xs);
+  }
+
+  .composer__send {
+    display: flex;
+    align-items: center;
+    flex: none;
+  }
+
+  .composer__send :global(.btn) {
+    height: 36px;
+    min-width: 84px;
   }
 
   .composer__note {
@@ -130,41 +197,21 @@
     color: var(--ink);
   }
 
-  .composer__send {
-    display: flex;
-    align-items: center;
-    flex: none;
-  }
-
-  .composer__send :global(.btn) {
-    height: 36px;
-    min-width: 84px;
-  }
-
   @container page (max-width: 620px) {
     .composer {
-      padding: 10px 16px;
+      padding: 10px 16px 12px;
     }
 
-    .composer__row {
-      grid-template-columns: minmax(0, 1fr) auto;
-      grid-template-areas:
-        'field field'
-        'line send';
-      align-items: center;
-      gap: 8px;
+    .composer__field :global(textarea) {
+      min-height: 56px !important;
     }
 
-    .composer__field {
-      grid-area: field;
+    .composer__hint {
+      display: none;
     }
 
     .composer__line {
-      grid-area: line;
-    }
-
-    .composer__send {
-      grid-area: send;
+      flex: 1 1 auto;
     }
   }
 </style>

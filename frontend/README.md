@@ -198,9 +198,11 @@ parses them as local time.
 Fill-height page with a conversation list (fixed 300–330px) and a message thread
 (flexible). Each region has one heading and a hairline border; headers share the same
 height. The thread scrolls to the newest message and paginates older messages upward
-(`per_page: 30`). Composer sits at the bottom of the thread column with a line selector,
-textarea, and send button aligned on one row, and only exists while a conversation is
-open. The thread header carries contact identity, the line used and the actions (refresh
+(`per_page: 30`). The composer sits at the bottom of the thread column and only exists
+while a conversation is open: a full-width editor row above a tool row holding the line
+selector (left), keyboard hint and Send (right). All tool-row controls share 36px height;
+the editor starts at 44px (56px on phones), auto-grows upward as text wraps up to 140px,
+and has no manual resize handle. The thread header carries contact identity, the line used and the actions (refresh
 history, delete conversation with confirmation) — nothing else. No conversation selected
 → one-line empty state pointing at the inbox "+" action. Messages use soft 16px rounded
 bubbles with very light neutral fills (inbound `--bubble-in`, outbound `--bubble-out`), no
