@@ -72,11 +72,15 @@
     flex: 1 1 auto;
     min-width: 0;
     margin: 0;
+    padding-block: 1px;
     font-family: var(--font-sans);
     font-size: 17px;
     font-weight: 600;
     letter-spacing: -0.01em;
-    line-height: 1.2;
+    /* Glyph descenders at some zoom levels clipped by 1–2px when the line box
+       was 1.2; 1.5 plus a hair of padding keeps the text fully inside the
+       overflow-hidden ellipsis box. */
+    line-height: 1.5;
     color: var(--ink);
   }
 
