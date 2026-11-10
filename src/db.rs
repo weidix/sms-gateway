@@ -85,6 +85,8 @@ pub struct SimCard {
     pub imsi: Option<String>,
     pub phone_number: Option<String>, // Phone number from SIM
     pub alias: Option<String>,        // User-defined alias
+    /// Desired modem radio state; true keeps the line off the cellular network.
+    pub airplane_mode: bool,
     // Note: port_path removed - SIM to port mapping is runtime only
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
@@ -377,7 +379,7 @@ impl SimCard {
     pub async fn find_by_id(id: &str) -> Result<Option<Self>> {
         let pool = get_pool()?;
         Ok(sqlx::query_as::<_, SimCard>(
-            "SELECT id, imsi, phone_number, alias, created_at, updated_at \
+            "SELECT id, imsi, phone_number, alias, airplane_mode, created_at, updated_at \
              FROM sim_cards WHERE id = ?",
         )
         .bind(id)
@@ -411,6 +413,20 @@ impl SimCard {
         Ok(())
     }
 
+    /// Stores the desired radio state so startup can reapply it.
+    pub async fn update_airplane_mode(&mut self, airplane_mode: bool) -> Result<()> {
+        let pool = get_pool()?;
+        self.airplane_mode = airplane_mode;
+        sqlx::query(
+            "UPDATE sim_cards SET airplane_mode = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        )
+        .bind(airplane_mode)
+        .bind(&self.id)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
     /// 4. 删除
     pub async fn delete(&self) -> Result<bool> {
         let pool = get_pool()?;
@@ -432,13 +448,14 @@ impl SimCard {
 
         for chunk in sim_cards.chunks(MAX_BATCH_SIZE) {
             let mut query_builder = QueryBuilder::new(
-                "INSERT INTO sim_cards (id, imsi, phone_number, alias, created_at, updated_at) ",
+                "INSERT INTO sim_cards (id, imsi, phone_number, alias, airplane_mode, created_at, updated_at) ",
             );
             query_builder.push_values(chunk, |mut b, sim_card| {
                 b.push_bind(&sim_card.id)
                     .push_bind(&sim_card.imsi)
                     .push_bind(&sim_card.phone_number)
                     .push_bind(&sim_card.alias)
+                    .push_bind(sim_card.airplane_mode)
                     .push_bind(sim_card.created_at)
                     .push_bind(sim_card.updated_at);
             });
@@ -458,7 +475,8 @@ impl SimCard {
     pub async fn query_all() -> Result<Vec<Self>> {
         let pool = get_pool()?;
         let sim_cards = sqlx::query_as::<_, SimCard>(
-            "SELECT id, imsi, phone_number, alias, created_at, updated_at FROM sim_cards ORDER BY created_at"
+            "SELECT id, imsi, phone_number, alias, airplane_mode, created_at, updated_at \
+             FROM sim_cards ORDER BY created_at",
         )
         .fetch_all(pool)
         .await?;
@@ -488,7 +506,8 @@ impl SimCard {
 
         let pool = get_pool()?;
         let mut query_builder = QueryBuilder::new(
-            "SELECT id, imsi, phone_number, alias, created_at, updated_at FROM sim_cards WHERE id IN ("
+            "SELECT id, imsi, phone_number, alias, airplane_mode, created_at, updated_at \
+             FROM sim_cards WHERE id IN (",
         );
         let mut separated = query_builder.separated(", ");
         for id in ids {
@@ -530,6 +549,7 @@ impl SimCard {
             imsi,
             phone_number,
             alias: None,
+            airplane_mode: false,
             created_at: now,
             updated_at: now,
         };

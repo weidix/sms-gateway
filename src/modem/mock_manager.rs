@@ -24,6 +24,7 @@ pub struct ModemManager {
     sim_cards_cache: Arc<RwLock<HashMap<String, SimCard>>>,
     configured_sms_storage: Arc<RwLock<HashMap<String, SmsStorage>>>,
     active_sms_storage: Arc<RwLock<HashMap<String, SmsStorage>>>,
+    airplane_modes: Arc<RwLock<HashMap<String, bool>>>,
 }
 
 impl ModemManager {
@@ -102,12 +103,30 @@ impl ModemManager {
             sim_cards_cache: Arc::new(RwLock::new(HashMap::new())),
             active_sms_storage: Arc::new(RwLock::new(configured_sms_storage.clone())),
             configured_sms_storage: Arc::new(RwLock::new(configured_sms_storage)),
+            airplane_modes: Arc::new(RwLock::new(HashMap::new())),
         };
 
         manager.init_sim_cache().await?;
+        manager.init_airplane_modes().await;
         manager.seed_mock_data(&sim_ids).await?;
 
         Ok(manager)
+    }
+
+    async fn init_airplane_modes(&self) {
+        let modes = self
+            .sim_cards_cache
+            .read()
+            .await
+            .values()
+            .filter(|card| card.airplane_mode)
+            .map(|card| card.id.clone())
+            .collect::<Vec<_>>();
+
+        let mut airplane_modes = self.airplane_modes.write().await;
+        for sim_id in modes {
+            airplane_modes.insert(sim_id, true);
+        }
     }
 
     async fn ensure_sim_cards(sim_ids: &[String]) -> anyhow::Result<()> {
@@ -226,6 +245,13 @@ impl ModemManager {
         contact: &Contact,
         message: &str,
     ) -> anyhow::Result<(i64, String)> {
+        if self.is_airplane_mode(sim_id).await {
+            return Err(anyhow::anyhow!(
+                "Line {} is in airplane mode; enable it before sending",
+                sim_id
+            ));
+        }
+
         let sms = Sms {
             id: 0,
             contact_id: contact.id.clone(),
@@ -409,6 +435,33 @@ impl ModemManager {
         ))
     }
 
+    pub async fn is_airplane_mode(&self, sim_id: &str) -> bool {
+        self.airplane_modes
+            .read()
+            .await
+            .get(sim_id)
+            .copied()
+            .unwrap_or(false)
+    }
+
+    pub async fn set_airplane_mode(&self, sim_id: &str, airplane_mode: bool) -> anyhow::Result<()> {
+        if self.get_modem(sim_id).await.is_none() {
+            return Err(anyhow::anyhow!("Modem not found for SIM ID: {}", sim_id));
+        }
+
+        let mut sim_card = SimCard::find_by_id(sim_id)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("SIM card not found for {}", sim_id))?;
+        sim_card.update_airplane_mode(airplane_mode).await?;
+
+        self.update_sim_cache(sim_card).await;
+        self.airplane_modes
+            .write()
+            .await
+            .insert(sim_id.to_string(), airplane_mode);
+        Ok(())
+    }
+
     pub async fn get_sim_card_cached(&self, sim_id: &str) -> Option<SimCard> {
         self.sim_cards_cache.read().await.get(sim_id).cloned()
     }
@@ -462,6 +515,7 @@ mod tests {
                 ("sim-1".to_string(), SmsStorage::ME),
                 ("sim-2".to_string(), SmsStorage::MT),
             ]))),
+            airplane_modes: Arc::new(RwLock::new(HashMap::new())),
         };
 
         let before_sim1 = manager
@@ -515,6 +569,7 @@ mod tests {
             sim_cards_cache: Arc::new(RwLock::new(HashMap::new())),
             active_sms_storage: Arc::new(RwLock::new(HashMap::new())),
             configured_sms_storage: Arc::new(RwLock::new(HashMap::new())),
+            airplane_modes: Arc::new(RwLock::new(HashMap::new())),
         };
 
         let response = manager
@@ -539,6 +594,7 @@ mod tests {
             sim_cards_cache: Arc::new(RwLock::new(HashMap::new())),
             active_sms_storage: Arc::new(RwLock::new(HashMap::new())),
             configured_sms_storage: Arc::new(RwLock::new(HashMap::new())),
+            airplane_modes: Arc::new(RwLock::new(HashMap::new())),
         };
 
         let response = manager

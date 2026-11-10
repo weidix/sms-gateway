@@ -11,7 +11,7 @@
   const REFRESH_MS = 20000;
   const TABS = [
     { value: 'all', label: 'All' },
-    { value: 'healthy', label: 'Healthy' },
+    { value: 'nominal', label: 'Nominal' },
     { value: 'attention', label: 'Attention' }
   ];
 
@@ -28,8 +28,12 @@
   const rows = $derived(
     sims.map((sim, index) => ({ sim, card: cardsById.get(sim.sim_id) ?? null, index: index + 1 }))
   );
-  const healthyCount = $derived(sims.filter((sim) => sim.health_status === 'healthy').length);
-  const attentionCount = $derived(sims.length - healthyCount);
+  // Suspended lines are intentionally off the network, so they belong to the
+  // nominal set rather than the attention filter.
+  const isNominal = (sim) =>
+    sim.health_status === 'healthy' || sim.health_status === 'suspended';
+  const nominalCount = $derived(sims.filter(isNominal).length);
+  const attentionCount = $derived(sims.filter((sim) => !isNominal(sim)).length);
   const unreadCount = $derived(
     conversations
       ? conversations.filter((conversation) => conversation?.sms_preview?.status === 0).length
@@ -37,15 +41,15 @@
   );
   const visibleRows = $derived(
     rows.filter((row) => {
-      if (statusFilter === 'healthy') return row.sim.health_status === 'healthy';
-      if (statusFilter === 'attention') return row.sim.health_status !== 'healthy';
+      if (statusFilter === 'nominal') return isNominal(row.sim);
+      if (statusFilter === 'attention') return !isNominal(row.sim);
       return true;
     })
   );
 
   const metrics = $derived([
     { label: 'Lines', value: loading ? '—' : String(sims.length) },
-    { label: 'Healthy', value: loading ? '—' : String(healthyCount) },
+    { label: 'Nominal', value: loading ? '—' : String(nominalCount) },
     { label: 'Attention', value: loading ? '—' : String(attentionCount) },
     { label: 'Unread', value: unreadCount == null ? '—' : String(unreadCount) }
   ]);

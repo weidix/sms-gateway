@@ -41,3 +41,10 @@ selected storage, and device index. It stores the exact PDU acknowledged in the
 same transaction as its archived message. This lets cleanup safely resume after
 restarts and partial multipart deletions without importing duplicate history.
 Existing SMS, contact, and SIM records are preserved.
+
+## SIM Airplane Mode
+
+`20261109000001_sim_airplane_mode.sql` adds `sim_cards.airplane_mode`. It stores
+the desired radio state so the service can keep a line off the cellular network
+across restarts and serial reconnections. Existing rows default to `0`, which
+leaves the radio enabled.

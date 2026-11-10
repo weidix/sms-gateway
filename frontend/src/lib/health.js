@@ -7,7 +7,8 @@ export const HEALTH_STATES = {
   healthy: { label: 'Healthy', tone: 'ok' },
   degraded: { label: 'Degraded', tone: 'warn' },
   recovering: { label: 'Recovering', tone: 'warn' },
-  critical: { label: 'Critical', tone: 'danger' }
+  critical: { label: 'Critical', tone: 'danger' },
+  suspended: { label: 'Suspended', tone: 'idle' }
 };
 
 /** @type {Record<string, string>} */

@@ -14,12 +14,14 @@ pub type HealthFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HealthCheckResult {
     failed_reasons: BTreeSet<FailureReason>,
+    suspended: bool,
 }
 
 impl HealthCheckResult {
     pub fn success() -> Self {
         Self {
             failed_reasons: BTreeSet::new(),
+            suspended: false,
         }
     }
 
@@ -29,11 +31,24 @@ impl HealthCheckResult {
     {
         Self {
             failed_reasons: reasons.into_iter().collect(),
+            suspended: false,
         }
     }
 
+    /// The line is intentionally off the network, so probing it is pointless.
+    pub fn suspended() -> Self {
+        Self {
+            failed_reasons: BTreeSet::new(),
+            suspended: true,
+        }
+    }
+
+    pub fn is_suspended(&self) -> bool {
+        self.suspended
+    }
+
     pub fn is_healthy(&self) -> bool {
-        self.failed_reasons.is_empty()
+        !self.suspended && self.failed_reasons.is_empty()
     }
 
     pub fn failed_reasons(&self) -> &BTreeSet<FailureReason> {
@@ -94,6 +109,10 @@ impl HealthProbe for ModemHealthProbe {
 
     fn run_checks<'a>(&'a self, sim_id: &'a str) -> HealthFuture<'a, Result<HealthCheckResult>> {
         Box::pin(async move {
+            if self.modem_manager.is_airplane_mode(sim_id).await {
+                return Ok(HealthCheckResult::suspended());
+            }
+
             let mut failed_reasons = BTreeSet::new();
 
             if self.modem_manager.probe_at(sim_id).await.is_err() {

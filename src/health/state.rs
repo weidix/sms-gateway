@@ -8,6 +8,8 @@ pub enum HealthStatus {
     Degraded,
     Recovering,
     Critical,
+    /// The line is intentionally off the network in airplane mode.
+    Suspended,
 }
 
 impl HealthStatus {
@@ -18,6 +20,7 @@ impl HealthStatus {
             Self::Degraded => "degraded",
             Self::Recovering => "recovering",
             Self::Critical => "critical",
+            Self::Suspended => "suspended",
         }
     }
 }
@@ -97,6 +100,20 @@ impl HealthSnapshot {
             consecutive_failures: 0,
             last_probe_at: Some(now),
             last_ok_at: Some(now),
+            last_recovery_action: self.last_recovery_action,
+            last_recovery_at: self.last_recovery_at,
+        }
+    }
+
+    /// Records that the line is intentionally off the network. Probes and
+    /// automatic recovery stay paused until the line is enabled again.
+    pub fn record_suspended(&self) -> Self {
+        Self {
+            current_status: HealthStatus::Suspended,
+            failure_reasons: BTreeSet::new(),
+            consecutive_failures: 0,
+            last_probe_at: Some(Utc::now()),
+            last_ok_at: self.last_ok_at,
             last_recovery_action: self.last_recovery_action,
             last_recovery_at: self.last_recovery_at,
         }
@@ -283,5 +300,18 @@ mod tests {
             Some(RecoveryAction::RestartModem)
         );
         assert_ne!(failed.last_recovery_at, Some(original_recovery_at));
+    }
+
+    #[test]
+    fn suspension_clears_failures_without_counting_a_probe_failure() {
+        let snapshot =
+            HealthSnapshot::new().record_failure(3, [FailureReason::AtUnreachable], None);
+
+        let suspended = snapshot.record_suspended();
+
+        assert_eq!(suspended.current_status, HealthStatus::Suspended);
+        assert!(suspended.failure_reasons.is_empty());
+        assert_eq!(suspended.consecutive_failures, 0);
+        assert!(suspended.last_probe_at.is_some());
     }
 }

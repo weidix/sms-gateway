@@ -111,6 +111,7 @@ impl HealthSupervisor {
         current: HealthSnapshot,
     ) -> HealthSnapshot {
         match self.probe.run_checks(sim_id).await {
+            Ok(result) if result.is_suspended() => current.record_suspended(),
             Ok(result) if result.is_healthy() => current.record_success(),
             Ok(result) => {
                 self.process_failed_snapshot(sim_id, current, result.failed_reasons().clone())
@@ -126,6 +127,17 @@ impl HealthSupervisor {
                 .await
             }
         }
+    }
+
+    /// Re-runs the probe for one line and replaces its snapshot immediately.
+    pub async fn refresh_sim(&self, sim_id: &str) -> HealthSnapshot {
+        let current = self
+            .snapshot_for(sim_id)
+            .await
+            .unwrap_or_else(HealthSnapshot::new);
+        let next = self.run_probe_cycle_for_sim(sim_id, current).await;
+        self.replace_snapshot_and_emit(sim_id, next.clone()).await;
+        next
     }
 
     async fn recover_sim(&self, sim_id: &str, snapshot: HealthSnapshot) -> HealthSnapshot {
@@ -167,6 +179,7 @@ impl HealthSupervisor {
         );
 
         match self.probe.run_checks(sim_id).await {
+            Ok(follow_up) if follow_up.is_suspended() => recovering.record_suspended(),
             Ok(follow_up) if follow_up.is_healthy() => {
                 info!("Health recovery succeeded for {}", sim_id);
                 recovering.record_success()
@@ -255,6 +268,11 @@ impl HealthSupervisor {
     }
 
     async fn should_emit_alert(&self, sim_id: &str, snapshot: &HealthSnapshot) -> bool {
+        // Airplane mode is an operator action, not a health fault.
+        if snapshot.current_status == HealthStatus::Suspended {
+            return false;
+        }
+
         let mut gates = self.alert_gates.write().await;
         let gate = gates.entry(sim_id.to_string()).or_default();
         gate.should_emit(snapshot)

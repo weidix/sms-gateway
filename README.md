@@ -118,6 +118,14 @@ acknowledgements are committed in the same transaction as the archived messages
 and removed after confirmed device deletion. Webhooks are queued only for newly
 archived messages; this does not add guaranteed webhook delivery across crashes.
 
+## SIM Airplane Mode
+
+Each line can be taken off the cellular network from its detail page without unplugging the modem. Disabling a line sends `AT+CFUN=4` to its modem; enabling it sends `AT+CFUN=1`. This keeps a SIM from registering with the network while the gateway retains the serial connection used for control.
+
+- The desired state is stored in SQLite (`sim_cards.airplane_mode`) and reapplied at startup and after a serial reconnection, so a service restart or USB re-enumeration does not put a disabled SIM back on the network.
+- While a line is disabled, SMS polling and health probes are paused and automatic health recovery cannot re-enable the radio. Outgoing SMS is rejected.
+- A module that does not implement `AT+CFUN` reports the failure in the web interface. Use the AT console on the line page to inspect the module's supported commands.
+
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.

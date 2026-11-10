@@ -230,7 +230,7 @@ pub async fn run_api(
         .route("/sim-cards", get(get_all_sim_cards)) // 保留用于管理
         .route(
             "/sims/{sim_id}/info",
-            get(get_enhanced_sim_info).with_state(sim_api_state),
+            get(get_enhanced_sim_info).with_state(sim_api_state.clone()),
         )
         .route(
             "/sim-cards/{sim_id}/alias",
@@ -251,6 +251,10 @@ pub async fn run_api(
         .route(
             "/sims/{sim_id}/at",
             post(run_at_command).with_state(modem_manager.clone()),
+        )
+        .route(
+            "/sims/{sim_id}/airplane",
+            put(set_sim_airplane_mode).with_state(sim_api_state.clone()),
         );
 
     if let Some((username, password)) = auth {
@@ -525,7 +529,8 @@ async fn get_all_sim_info(State(state): State<SimApiState>) -> Response {
             "model_info": model_data,
             "sms_center": sms_center_data.as_ref().and_then(|s| s.as_ref()).map(|s| decode_sms_center(s)),
             "sim_status": sim_status_data,
-            "memory_status": memory_status_data.as_ref().and_then(|s| s.as_ref()).map(|s| format_memory_status(s))
+            "memory_status": memory_status_data.as_ref().and_then(|s| s.as_ref()).map(|s| format_memory_status(s)),
+            "airplane_mode": modem_manager.is_airplane_mode(&sim_id).await
         }), &sim_id, health_supervisor.as_ref()).await);
     }
 
@@ -652,6 +657,7 @@ pub struct EnhancedModemInfo {
     pub sms_center: Option<String>,
     pub sim_status: Option<String>,
     pub memory_status: Option<String>,
+    pub airplane_mode: bool,
 }
 
 async fn get_all_sim_cards() -> Response {
@@ -698,6 +704,7 @@ async fn get_enhanced_sim_info(
                 sms_center: sms_center_raw.as_ref().map(|s| decode_sms_center(s)),
                 sim_status: modem_manager.get_sim_status(&sim_id).await.ok().flatten(),
                 memory_status: memory_status_raw.as_ref().map(|s| format_memory_status(s)),
+                airplane_mode: modem_manager.is_airplane_mode(&sim_id).await,
             };
 
             let response = match serde_json::to_value(enhanced_info) {
@@ -735,6 +742,11 @@ struct UpdatePhoneRequest {
 #[derive(Deserialize)]
 struct AtCommandRequest {
     command: String,
+}
+
+#[derive(Deserialize)]
+struct AirplaneModeRequest {
+    airplane_mode: bool,
 }
 
 #[derive(Serialize)]
@@ -893,6 +905,46 @@ async fn run_at_command(
             };
             (StatusCode::BAD_GATEWAY, Json(response)).into_response()
         }
+    }
+}
+
+async fn set_sim_airplane_mode(
+    Path(sim_id): Path<String>,
+    State(state): State<SimApiState>,
+    Json(request): Json<AirplaneModeRequest>,
+) -> Response {
+    if state.modem_manager.get_modem(&sim_id).await.is_none() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "SIM not found" })),
+        )
+            .into_response();
+    }
+
+    match state
+        .modem_manager
+        .set_airplane_mode(&sim_id, request.airplane_mode)
+        .await
+    {
+        Ok(()) => {
+            let snapshot = state.health_supervisor.refresh_sim(&sim_id).await;
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "sim_id": sim_id,
+                    "airplane_mode": request.airplane_mode,
+                    "health_status": snapshot.current_status.as_str(),
+                })),
+            )
+                .into_response()
+        }
+        // Plain text so the web client can surface the module's rejection reason
+        // (for example a module without AT+CFUN support) instead of a generic message.
+        Err(error) => (
+            StatusCode::BAD_GATEWAY,
+            format!("Failed to set airplane mode: {}", error),
+        )
+            .into_response(),
     }
 }
 

@@ -171,6 +171,26 @@ impl OperatorInfo {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FunctionalityStatus {
+    pub level: u8,
+}
+
+impl FunctionalityStatus {
+    pub fn from_response(response: &str) -> Option<Self> {
+        response.lines().find_map(|line| {
+            let data = line.trim().strip_prefix("+CFUN:")?;
+            let level = data.split(',').next()?.trim().parse().ok()?;
+            Some(Self { level })
+        })
+    }
+
+    /// Levels 0 and 4 leave the radio off; only full functionality enables it.
+    pub fn is_radio_off(&self) -> bool {
+        self.level != 1
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModemInfo {
     model: String,
@@ -189,7 +209,7 @@ impl ModemInfo {
 
 #[cfg(test)]
 mod tests {
-    use super::{NetworkRegistrationStatus, SmsStorageStatus, SmsType};
+    use super::{FunctionalityStatus, NetworkRegistrationStatus, SmsStorageStatus, SmsType};
 
     #[test]
     fn assert_sms_type_to_at_command_pdu_matches_expected_codes() {
@@ -230,5 +250,18 @@ mod tests {
         assert!(home.is_registered());
         assert!(roaming.is_registered());
         assert!(!searching.is_registered());
+    }
+
+    #[test]
+    fn parses_functionality_level_from_cfun_response() {
+        let full = FunctionalityStatus::from_response("\r\n+CFUN: 1\r\n\r\nOK\r\n")
+            .expect("expected full functionality to parse");
+        let airplane = FunctionalityStatus::from_response("\r\n+CFUN: 4,0\r\n\r\nOK\r\n")
+            .expect("expected airplane functionality to parse");
+
+        assert_eq!(full.level, 1);
+        assert!(!full.is_radio_off());
+        assert_eq!(airplane.level, 4);
+        assert!(airplane.is_radio_off());
     }
 }

@@ -223,6 +223,13 @@ export const api = {
     request(`/api/sims/${encodeURIComponent(simId)}/at`, {
       method: 'POST',
       body: { command }
+    }),
+
+  /** @param {string} simId @param {boolean} airplaneMode */
+  setAirplaneMode: (simId, airplaneMode) =>
+    request(`/api/sims/${encodeURIComponent(simId)}/airplane`, {
+      method: 'PUT',
+      body: { airplane_mode: airplaneMode }
     })
 };
 

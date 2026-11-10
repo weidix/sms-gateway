@@ -10,6 +10,7 @@
   import HealthPanel from '$lib/fleet/HealthPanel.svelte';
   import StoragePanel from '$lib/fleet/StoragePanel.svelte';
   import DevicePanel from '$lib/fleet/DevicePanel.svelte';
+  import RadioPanel from '$lib/fleet/RadioPanel.svelte';
   import AtConsole from '$lib/fleet/AtConsole.svelte';
   import EditIdentityDialog from '$lib/fleet/EditIdentityDialog.svelte';
   import { api } from '$lib/api.js';
@@ -124,6 +125,10 @@
     }
   }
 
+  async function reloadAirplaneMode() {
+    await Promise.allSettled([refreshHealth({ quiet: true }), reloadCards()]);
+  }
+
   async function refreshInbox() {
     const id = loadedId;
     if (!id || refreshingInbox) return;
@@ -227,6 +232,11 @@
     <div class="detail__body">
       <div class="detail__side">
         <HealthPanel {sim} refreshing={refreshingHealth} onRefresh={refreshHealth} />
+        <RadioPanel
+          simId={loadedId}
+          airplaneMode={sim?.airplane_mode ?? false}
+          onReload={reloadAirplaneMode}
+        />
         <StoragePanel
           simId={loadedId}
           status={storage?.status ?? ''}

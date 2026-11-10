@@ -97,6 +97,11 @@ async fn read_sms_worker(
 ) {
     loop {
         for sim_id in modem_manager.get_sim_ids().await {
+            if modem_manager.is_airplane_mode(&sim_id).await {
+                log::debug!("Skipping SMS polling for {} in airplane mode", sim_id);
+                continue;
+            }
+
             let snapshot = health_supervisor.snapshot_for(&sim_id).await;
             if !should_poll_sms(snapshot.as_ref()) {
                 log::debug!(
@@ -131,6 +136,8 @@ fn should_poll_sms(snapshot: Option<&HealthSnapshot>) -> bool {
     match snapshot.current_status {
         HealthStatus::Healthy | HealthStatus::Degraded => true,
         HealthStatus::Recovering => false,
+        // Airplane mode pauses receive work until the line is enabled again.
+        HealthStatus::Suspended => false,
         // Importing and deleting archived messages is how a full inbox recovers.
         HealthStatus::Critical => {
             snapshot
@@ -341,6 +348,8 @@ mod main_tests {
         snapshot.current_status = HealthStatus::Degraded;
         assert!(should_poll_sms(Some(&snapshot)));
         snapshot.current_status = HealthStatus::Recovering;
+        assert!(!should_poll_sms(Some(&snapshot)));
+        snapshot.current_status = HealthStatus::Suspended;
         assert!(!should_poll_sms(Some(&snapshot)));
         snapshot.current_status = HealthStatus::Critical;
         assert!(!should_poll_sms(Some(&snapshot)));

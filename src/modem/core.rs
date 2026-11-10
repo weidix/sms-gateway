@@ -34,6 +34,7 @@ struct SerialConnection {
     stream: Option<SerialStream>,
     state: ConnectionState,
     sms_storage: Option<SmsStorage>,
+    airplane_mode: Option<bool>,
 }
 
 impl SerialConnection {
@@ -80,6 +81,7 @@ impl Modem {
             stream: Some(serial_stream),
             state: ConnectionState::Connected,
             sms_storage: None,
+            airplane_mode: None,
         }));
         let command_semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_COMMANDS));
 
@@ -227,7 +229,13 @@ impl Modem {
 
         let result = async {
             let mut stream = Self::create_serial_connection(com_port, baud_rate).await?;
-            Self::initialize_serial(&mut stream, connection.sms_storage, name).await?;
+            Self::initialize_serial(
+                &mut stream,
+                connection.sms_storage,
+                connection.airplane_mode,
+                name,
+            )
+            .await?;
             Ok::<_, io::Error>(stream)
         }
         .await;
@@ -253,6 +261,7 @@ impl Modem {
     async fn initialize_serial(
         stream: &mut SerialStream,
         sms_storage: Option<SmsStorage>,
+        airplane_mode: Option<bool>,
         name: &str,
     ) -> io::Result<()> {
         for (command, description) in Self::init_commands() {
@@ -264,6 +273,11 @@ impl Modem {
         if let Some(storage) = sms_storage {
             let command = Self::sms_storage_command(storage);
             Self::execute_serial_with_ok(stream, &command, name).await?;
+        }
+        // A reconnected module may have rebooted back to full functionality, so
+        // restore the disabled radio before any later command can register it.
+        if airplane_mode == Some(true) {
+            Self::execute_serial_with_ok(stream, Self::airplane_mode_command(true), name).await?;
         }
         Ok(())
     }
@@ -478,7 +492,65 @@ impl Modem {
 
     pub async fn soft_restart(&self) -> io::Result<()> {
         let _inbox_guard = self.inbox_lock.lock().await;
+        if self.serial_connection.lock().await.airplane_mode == Some(true) {
+            info!(
+                "Skipping soft restart for {} while airplane mode is enabled",
+                self.name
+            );
+            return Ok(());
+        }
         Self::validate_soft_restart_result(self.send_command("AT+CFUN=1,1\r\n").await)
+    }
+
+    fn airplane_mode_command(airplane_mode: bool) -> &'static str {
+        if airplane_mode {
+            "AT+CFUN=4\r\n"
+        } else {
+            "AT+CFUN=1\r\n"
+        }
+    }
+
+    /// Reads the module functionality level; any level other than full reports
+    /// that the radio is off.
+    pub async fn get_functionality(&self) -> io::Result<Option<FunctionalityStatus>> {
+        let _inbox_guard = self.inbox_lock.lock().await;
+        self.read_functionality().await
+    }
+
+    async fn read_functionality(&self) -> io::Result<Option<FunctionalityStatus>> {
+        let raw_response = self.send_command_with_ok("AT+CFUN?\r\n").await?;
+        Ok(FunctionalityStatus::from_response(&raw_response))
+    }
+
+    /// Disables or restores the radio. The desired state is remembered so a
+    /// reconnected module is returned to airplane mode during initialization.
+    pub async fn set_airplane_mode(&self, airplane_mode: bool) -> io::Result<()> {
+        let _inbox_guard = self.inbox_lock.lock().await;
+        self.send_command_with_ok(Self::airplane_mode_command(airplane_mode))
+            .await?;
+
+        if airplane_mode {
+            // Some modules acknowledge the command without leaving full
+            // functionality; treat that as a failure so the caller can report it.
+            // The enable path is not verified on purpose: a transient readback
+            // must not leave the UI reporting a suspended line whose radio is on.
+            if let Ok(Some(status)) = self.read_functionality().await {
+                if !status.is_radio_off() {
+                    return Err(io::Error::other(format!(
+                        "Modem still reports functionality level {} after airplane mode",
+                        status.level
+                    )));
+                }
+            }
+        }
+
+        self.serial_connection.lock().await.airplane_mode = Some(airplane_mode);
+        info!(
+            "Airplane mode {} for device {}",
+            if airplane_mode { "enabled" } else { "disabled" },
+            self.name
+        );
+        Ok(())
     }
 
     async fn send_command(&self, command: &str) -> io::Result<String> {
