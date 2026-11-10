@@ -129,15 +129,15 @@ impl HealthSupervisor {
         }
     }
 
-    /// Re-runs the probe for one line and replaces its snapshot immediately.
-    pub async fn refresh_sim(&self, sim_id: &str) -> HealthSnapshot {
+    /// Marks a line as suspended after the operator disabled its radio. This
+    /// does not run a probe, so an HTTP request never enters the recovery plan.
+    pub async fn mark_suspended(&self, sim_id: &str) {
         let current = self
             .snapshot_for(sim_id)
             .await
             .unwrap_or_else(HealthSnapshot::new);
-        let next = self.run_probe_cycle_for_sim(sim_id, current).await;
-        self.replace_snapshot_and_emit(sim_id, next.clone()).await;
-        next
+        self.replace_snapshot_and_emit(sim_id, current.record_suspended())
+            .await;
     }
 
     async fn recover_sim(&self, sim_id: &str, snapshot: HealthSnapshot) -> HealthSnapshot {

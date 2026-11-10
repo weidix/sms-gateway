@@ -927,13 +927,14 @@ async fn set_sim_airplane_mode(
         .await
     {
         Ok(()) => {
-            let snapshot = state.health_supervisor.refresh_sim(&sim_id).await;
+            if request.airplane_mode {
+                state.health_supervisor.mark_suspended(&sim_id).await;
+            }
             (
                 StatusCode::OK,
                 Json(json!({
                     "sim_id": sim_id,
                     "airplane_mode": request.airplane_mode,
-                    "health_status": snapshot.current_status.as_str(),
                 })),
             )
                 .into_response()

@@ -1,6 +1,6 @@
 use chrono::{Local, Timelike};
 use futures::stream::{FuturesUnordered, StreamExt};
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use std::io;
 use std::sync::Arc;
 use std::time::Duration;
@@ -510,8 +510,7 @@ impl Modem {
         }
     }
 
-    /// Reads the module functionality level; any level other than full reports
-    /// that the radio is off.
+    /// Reads the module functionality level.
     pub async fn get_functionality(&self) -> io::Result<Option<FunctionalityStatus>> {
         let _inbox_guard = self.inbox_lock.lock().await;
         self.read_functionality().await
@@ -529,18 +528,23 @@ impl Modem {
         self.send_command_with_ok(Self::airplane_mode_command(airplane_mode))
             .await?;
 
+        // Only the disable path is verified, because a module may acknowledge the
+        // command without leaving full functionality. A failed enable readback
+        // must not leave the UI reporting a suspended line whose radio is on.
         if airplane_mode {
-            // Some modules acknowledge the command without leaving full
-            // functionality; treat that as a failure so the caller can report it.
-            // The enable path is not verified on purpose: a transient readback
-            // must not leave the UI reporting a suspended line whose radio is on.
-            if let Ok(Some(status)) = self.read_functionality().await {
-                if !status.is_radio_off() {
+            match self.read_functionality().await {
+                Ok(Some(status)) if !status.is_airplane() => {
                     return Err(io::Error::other(format!(
-                        "Modem still reports functionality level {} after airplane mode",
+                        "Modem reports functionality level {} after airplane mode",
                         status.level
                     )));
                 }
+                Ok(Some(_)) => {}
+                Ok(None) => warn!(
+                    "Module {} acknowledged airplane mode without a +CFUN readback",
+                    self.name
+                ),
+                Err(err) => warn!("Could not verify airplane mode on {}: {}", self.name, err),
             }
         }
 

@@ -166,7 +166,7 @@ Shapes returned by the Rust server:
 // send: true = outbound, false = inbound. status: 0 unread, 1 read, 2 loading, 3 failed
 
 // GET /api/sim-cards
-[{ id, imsi, phone_number, alias, created_at, updated_at }]
+[{ id, imsi, phone_number, alias, airplane_mode, created_at, updated_at }]
 
 // GET /api/sims/info
 [{
@@ -177,7 +177,8 @@ Shapes returned by the Rust server:
   sms_center: string | null,
   sim_status: string | null,      // e.g. "READY"
   memory_status: string | null,   // "Read: 5/100, Write: 5/100, Receive: 5/100"
-  health_status: 'healthy'|'degraded'|'recovering'|'critical'|null,
+  airplane_mode: boolean,         // radio disabled by the operator
+  health_status: 'healthy'|'degraded'|'recovering'|'critical'|'suspended'|null,
   failure_reasons: string[] | null,
   consecutive_failures: number | null,
   last_probe_at: ISO string | null,
@@ -188,6 +189,7 @@ Shapes returned by the Rust server:
 
 // GET /api/sims/{id}/storage → { status: string | null }
 // PUT /api/sims/{id}/storage { storage: 'SIM' | 'ME' | 'MT' }
+// PUT /api/sims/{id}/airplane { airplane_mode: boolean } → { sim_id, airplane_mode }
 // POST /api/sims/{id}/at { command } →
 { command, output, status: 'ok'|'error'|'unknown'|'transport_error', executed_at, duration_ms }
 // GET /api/sims/{id}/refresh triggers device import/cleanup (204)

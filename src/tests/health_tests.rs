@@ -490,13 +490,7 @@ impl HealthAlertSink for RecordingAlertSink {
 async fn suspended_probe_keeps_line_off_network_without_recovery_or_alerts() {
     let probe = Arc::new(SequenceProbe::new(
         vec!["sim-1".to_string()],
-        [(
-            "sim-1",
-            vec![
-                HealthCheckResult::suspended(),
-                HealthCheckResult::suspended(),
-            ],
-        )],
+        [("sim-1", vec![HealthCheckResult::suspended()])],
     ));
     let recovery = Arc::new(RecordingRecovery::default());
     let alerts = Arc::new(RecordingAlertSink::default());
@@ -509,14 +503,14 @@ async fn suspended_probe_keeps_line_off_network_without_recovery_or_alerts() {
     );
 
     supervisor.run_probe_cycle().await;
-    let refreshed = supervisor.refresh_sim("sim-1").await;
+    // A manual disable marks the snapshot without running the probe pipeline.
+    supervisor.mark_suspended("sim-1").await;
 
     let snapshot = supervisor
         .snapshot_for("sim-1")
         .await
         .expect("expected sim snapshot");
     assert_eq!(snapshot.current_status, HealthStatus::Suspended);
-    assert_eq!(refreshed.current_status, HealthStatus::Suspended);
     assert!(snapshot.failure_reasons.is_empty());
     assert_eq!(snapshot.consecutive_failures, 0);
     assert!(recovery.events().await.is_empty());

@@ -177,6 +177,11 @@ pub struct FunctionalityStatus {
 }
 
 impl FunctionalityStatus {
+    /// Full functionality: the radio registers and transmits normally.
+    pub const FULL_LEVEL: u8 = 1;
+    /// Flight mode: the radio stays off while the module and SIM remain usable.
+    pub const AIRPLANE_LEVEL: u8 = 4;
+
     pub fn from_response(response: &str) -> Option<Self> {
         response.lines().find_map(|line| {
             let data = line.trim().strip_prefix("+CFUN:")?;
@@ -185,9 +190,10 @@ impl FunctionalityStatus {
         })
     }
 
-    /// Levels 0 and 4 leave the radio off; only full functionality enables it.
-    pub fn is_radio_off(&self) -> bool {
-        self.level != 1
+    /// Only flight mode counts as airplane mode. Partial RX/TX levels and vendor
+    /// specific levels leave behaviour unclear, so they are not treated as off.
+    pub fn is_airplane(&self) -> bool {
+        self.level == Self::AIRPLANE_LEVEL
     }
 }
 
@@ -258,10 +264,13 @@ mod tests {
             .expect("expected full functionality to parse");
         let airplane = FunctionalityStatus::from_response("\r\n+CFUN: 4,0\r\n\r\nOK\r\n")
             .expect("expected airplane functionality to parse");
+        let partial = FunctionalityStatus::from_response("\r\n+CFUN: 2\r\n\r\nOK\r\n")
+            .expect("expected partial functionality to parse");
 
-        assert_eq!(full.level, 1);
-        assert!(!full.is_radio_off());
-        assert_eq!(airplane.level, 4);
-        assert!(airplane.is_radio_off());
+        assert_eq!(full.level, FunctionalityStatus::FULL_LEVEL);
+        assert!(!full.is_airplane());
+        assert_eq!(airplane.level, FunctionalityStatus::AIRPLANE_LEVEL);
+        assert!(airplane.is_airplane());
+        assert!(!partial.is_airplane());
     }
 }

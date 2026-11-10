@@ -40,17 +40,21 @@ impl ModemManager {
 
         let mut modems = HashMap::new();
         let mut configured_sms_storage = HashMap::new();
+        let mut airplane_modes = HashMap::new();
         let mut new_sim_ids = Vec::new();
         let mut failed_count = 0;
 
         while let Some(result) = initialization_futures.next().await {
             match result {
-                Ok((sim_id, modem, is_new, sms_storage)) => {
+                Ok((sim_id, modem, is_new, sms_storage, airplane_applied)) => {
                     if is_new {
                         new_sim_ids.push(sim_id.clone());
                     }
                     if let Some(storage) = sms_storage {
                         configured_sms_storage.insert(sim_id.clone(), storage);
+                    }
+                    if airplane_applied {
+                        airplane_modes.insert(sim_id.clone(), true);
                     }
                     modems.insert(sim_id, Arc::new(modem));
                 }
@@ -75,11 +79,10 @@ impl ModemManager {
             modems: Arc::new(RwLock::new(modems)),
             sim_cards_cache: Arc::new(RwLock::new(HashMap::new())),
             configured_sms_storage: Arc::new(RwLock::new(configured_sms_storage)),
-            airplane_modes: Arc::new(RwLock::new(HashMap::new())),
+            airplane_modes: Arc::new(RwLock::new(airplane_modes)),
         };
 
         manager.init_sim_cache().await?;
-        manager.apply_persisted_airplane_modes().await;
 
         if !new_sim_ids.is_empty() {
             manager.init_new_sim_sms_data(new_sim_ids).await;
@@ -94,19 +97,33 @@ impl ModemManager {
         device_id: String,
         sms_storage: Option<SmsStorage>,
         index: usize,
-    ) -> anyhow::Result<(String, Modem, bool, Option<SmsStorage>)> {
+    ) -> anyhow::Result<(String, Modem, bool, Option<SmsStorage>, bool)> {
         info!("Initializing modem on port {}", port);
 
         let mut modem = Modem::new(&port, baud_rate, &device_id).await?;
 
         let pre_sim_id = modem.get_sim_iccid().await.ok().flatten();
-        let is_new_sim = if let Some(ref sim_id) = pre_sim_id {
-            Self::is_new_sim_id(sim_id).await
-        } else {
-            false
+        let existing_card = match pre_sim_id.as_deref() {
+            Some(sim_id) => SimCard::find_by_id(sim_id).await.ok().flatten(),
+            None => None,
         };
+        let is_new_sim = pre_sim_id.is_some() && existing_card.is_none();
+        let airplane_mode = existing_card
+            .map(|card| card.airplane_mode)
+            .unwrap_or(false);
+
+        // Stop the radio before the remaining initialization so a disabled line
+        // does not register while the module commands and SIM discovery run.
+        let mut airplane_applied = false;
+        if airplane_mode {
+            airplane_applied = Self::apply_airplane_mode_at_startup(&modem, &port).await;
+        }
 
         modem.init_modem(sms_storage).await?;
+
+        if airplane_mode && !airplane_applied {
+            airplane_applied = Self::apply_airplane_mode_at_startup(&modem, &port).await;
+        }
 
         let sim_id = pre_sim_id.unwrap_or_else(|| {
             log::warn!("Using fallback SIM ID for port {}", port);
@@ -118,15 +135,15 @@ impl ModemManager {
             port, sim_id
         );
 
-        Ok((sim_id, modem, is_new_sim, sms_storage))
+        Ok((sim_id, modem, is_new_sim, sms_storage, airplane_applied))
     }
 
-    async fn is_new_sim_id(sim_id: &str) -> bool {
-        match SimCard::find_by_id(sim_id).await {
-            Ok(existing) => existing.is_none(),
-            Err(e) => {
-                log::warn!("Failed to check SIM ID existence: {}", e);
-                true
+    async fn apply_airplane_mode_at_startup(modem: &Modem, port: &str) -> bool {
+        match modem.set_airplane_mode(true).await {
+            Ok(()) => true,
+            Err(err) => {
+                error!("Failed to apply airplane mode for {}: {}", port, err);
+                false
             }
         }
     }
@@ -144,49 +161,30 @@ impl ModemManager {
         Ok(())
     }
 
-    /// Reapplies the stored radio state once modems and SIM records are loaded.
-    async fn apply_persisted_airplane_modes(&self) {
-        let desired_states: Vec<(String, bool)> = {
-            let cache = self.sim_cards_cache.read().await;
-            cache
-                .values()
-                .map(|card| (card.id.clone(), card.airplane_mode))
-                .collect()
-        };
-
-        for (sim_id, airplane_mode) in desired_states {
-            let Some(modem) = self.get_modem(&sim_id).await else {
-                continue;
-            };
-
-            if airplane_mode {
-                match modem.set_airplane_mode(true).await {
-                    Ok(()) => {
-                        self.airplane_modes
-                            .write()
-                            .await
-                            .insert(sim_id.clone(), true);
-                        info!("Restored airplane mode for {}", sim_id);
-                    }
-                    Err(err) => {
-                        error!("Failed to restore airplane mode for {}: {}", sim_id, err);
-                    }
-                }
-                continue;
-            }
-
-            // A module may still be off from an earlier run. Only re-enable the
-            // radio when the readback reports it off, so modules without CFUN
-            // readback are not sent commands they may reject.
-            match modem.get_functionality().await {
-                Ok(Some(status)) if status.is_radio_off() => {
-                    if let Err(err) = modem.set_airplane_mode(false).await {
-                        error!("Failed to restore radio for {}: {}", sim_id, err);
-                    }
-                }
-                _ => {}
-            }
+    /// Re-checks a suspended line and disables the radio again when the module
+    /// has returned to full functionality, for example after a watchdog reset
+    /// that kept the serial port open. A transport error is left for the normal
+    /// reconnection path, which reapplies airplane mode during initialization.
+    pub async fn enforce_airplane_mode(&self, sim_id: &str) -> anyhow::Result<()> {
+        if !self.is_airplane_mode(sim_id).await {
+            return Ok(());
         }
+
+        let modem = self
+            .get_modem(sim_id)
+            .await
+            .ok_or_else(|| anyhow::anyhow!("Modem not found for SIM ID: {}", sim_id))?;
+
+        match modem.get_functionality().await {
+            Ok(Some(status)) if !status.is_airplane() => {
+                modem.set_airplane_mode(true).await?;
+                info!("Reapplied airplane mode for {}", sim_id);
+            }
+            Ok(_) => {}
+            Err(err) => return Err(err.into()),
+        }
+
+        Ok(())
     }
 
     pub async fn is_airplane_mode(&self, sim_id: &str) -> bool {
@@ -207,16 +205,19 @@ impl ModemManager {
 
         modem.set_airplane_mode(airplane_mode).await?;
 
+        // Track the state that is now on the hardware before persisting it, so a
+        // database failure cannot make the running service misreport the radio.
+        self.airplane_modes
+            .write()
+            .await
+            .insert(sim_id.to_string(), airplane_mode);
+
         let mut sim_card = SimCard::find_by_id(sim_id)
             .await?
             .ok_or_else(|| anyhow::anyhow!("SIM card not found for {}", sim_id))?;
         sim_card.update_airplane_mode(airplane_mode).await?;
 
         self.update_sim_cache(sim_card).await;
-        self.airplane_modes
-            .write()
-            .await
-            .insert(sim_id.to_string(), airplane_mode);
         Ok(())
     }
 

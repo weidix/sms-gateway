@@ -444,6 +444,11 @@ impl ModemManager {
             .unwrap_or(false)
     }
 
+    /// Mock modems have no independent radio state to reconcile.
+    pub async fn enforce_airplane_mode(&self, _sim_id: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
+
     pub async fn set_airplane_mode(&self, sim_id: &str, airplane_mode: bool) -> anyhow::Result<()> {
         if self.get_modem(sim_id).await.is_none() {
             return Err(anyhow::anyhow!("Modem not found for SIM ID: {}", sim_id));
@@ -603,5 +608,36 @@ mod tests {
             .expect("expected mock response");
 
         assert!(response.contains("ERROR"));
+    }
+}
+
+#[cfg(test)]
+mod airplane_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn send_sms_is_rejected_while_the_line_is_in_airplane_mode() {
+        let manager = ModemManager {
+            modems: Arc::new(RwLock::new(HashMap::from([(
+                "sim-1".to_string(),
+                Arc::new(MockModem {
+                    com_port: "mock://1".to_string(),
+                    baud_rate: 115200,
+                }),
+            )]))),
+            sim_cards_cache: Arc::new(RwLock::new(HashMap::new())),
+            active_sms_storage: Arc::new(RwLock::new(HashMap::new())),
+            configured_sms_storage: Arc::new(RwLock::new(HashMap::new())),
+            airplane_modes: Arc::new(RwLock::new(HashMap::from([("sim-1".to_string(), true)]))),
+        };
+        let contact = Contact {
+            id: "contact-1".to_string(),
+            name: "Alice".to_string(),
+        };
+
+        let result = manager.send_sms("sim-1", &contact, "hello").await;
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("airplane mode"));
     }
 }

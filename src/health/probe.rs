@@ -1,6 +1,7 @@
 use std::{collections::BTreeSet, future::Future, pin::Pin};
 
 use anyhow::Result;
+use log::warn;
 
 use crate::{
     config::SmsStorage,
@@ -110,6 +111,13 @@ impl HealthProbe for ModemHealthProbe {
     fn run_checks<'a>(&'a self, sim_id: &'a str) -> HealthFuture<'a, Result<HealthCheckResult>> {
         Box::pin(async move {
             if self.modem_manager.is_airplane_mode(sim_id).await {
+                // A module that rebooted while suspended comes back registered.
+                // The regular check doubles as the enforcement point for the
+                // desired radio state; a transport error is handled by the
+                // reconnection path, which reapplies airplane mode itself.
+                if let Err(err) = self.modem_manager.enforce_airplane_mode(sim_id).await {
+                    warn!("Could not verify airplane mode for {}: {}", sim_id, err);
+                }
                 return Ok(HealthCheckResult::suspended());
             }
 

@@ -46,5 +46,5 @@ Existing SMS, contact, and SIM records are preserved.
 
 `20261109000001_sim_airplane_mode.sql` adds `sim_cards.airplane_mode`. It stores
 the desired radio state so the service can keep a line off the cellular network
-across restarts and serial reconnections. Existing rows default to `0`, which
-leaves the radio enabled.
+across restarts, serial reconnections, and module resets. Existing rows default
+to `0`, which leaves the radio enabled.

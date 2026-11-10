@@ -224,12 +224,19 @@ async fn missing_device_can_reappear_during_reconnection_retries() {
 
 #[tokio::test]
 async fn airplane_mode_is_reapplied_after_reconnection() {
-    let (device, old_master) = TestDevice::new().unwrap();
+    let (device, master) = TestDevice::new().unwrap();
     let modem = device.modem().await.unwrap();
-    let configure = respond(
-        old_master,
-        vec!["AT+CFUN=4\r\n".to_string(), "AT+CFUN?\r\n".to_string()],
-    );
+    let configure = tokio::spawn(async move {
+        let mut master = master;
+        assert_eq!(read_command(&mut master).await, "AT+CFUN=4\r\n");
+        master.write_all(b"\r\nOK\r\n").await.unwrap();
+        assert_eq!(read_command(&mut master).await, "AT+CFUN?\r\n");
+        master
+            .write_all(b"\r\n+CFUN: 4\r\n\r\nOK\r\n")
+            .await
+            .unwrap();
+        master
+    });
     modem.set_airplane_mode(true).await.unwrap();
     let old_master = configure.await.unwrap();
     drop(old_master);
@@ -269,4 +276,22 @@ async fn airplane_mode_rejects_a_module_that_stays_in_full_functionality() {
     let _master = responder.await.unwrap();
     assert!(result.is_err());
     assert!(modem.serial_connection.lock().await.airplane_mode.is_none());
+}
+
+#[tokio::test]
+async fn airplane_mode_is_accepted_when_the_module_has_no_readback() {
+    let (device, master) = TestDevice::new().unwrap();
+    let modem = device.modem().await.unwrap();
+    let responder = respond(
+        master,
+        vec!["AT+CFUN=4\r\n".to_string(), "AT+CFUN?\r\n".to_string()],
+    );
+
+    modem.set_airplane_mode(true).await.unwrap();
+
+    let _master = responder.await.unwrap();
+    assert_eq!(
+        modem.serial_connection.lock().await.airplane_mode,
+        Some(true)
+    );
 }

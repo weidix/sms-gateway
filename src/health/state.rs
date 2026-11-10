@@ -106,13 +106,14 @@ impl HealthSnapshot {
     }
 
     /// Records that the line is intentionally off the network. Probes and
-    /// automatic recovery stay paused until the line is enabled again.
+    /// automatic recovery stay paused until the line is enabled again. No probe
+    /// runs, so the last probe timestamp is left untouched.
     pub fn record_suspended(&self) -> Self {
         Self {
             current_status: HealthStatus::Suspended,
             failure_reasons: BTreeSet::new(),
             consecutive_failures: 0,
-            last_probe_at: Some(Utc::now()),
+            last_probe_at: self.last_probe_at,
             last_ok_at: self.last_ok_at,
             last_recovery_action: self.last_recovery_action,
             last_recovery_at: self.last_recovery_at,

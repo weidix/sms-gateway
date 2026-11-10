@@ -122,9 +122,10 @@ archived messages; this does not add guaranteed webhook delivery across crashes.
 
 Each line can be taken off the cellular network from its detail page without unplugging the modem. Disabling a line sends `AT+CFUN=4` to its modem; enabling it sends `AT+CFUN=1`. This keeps a SIM from registering with the network while the gateway retains the serial connection used for control.
 
-- The desired state is stored in SQLite (`sim_cards.airplane_mode`) and reapplied at startup and after a serial reconnection, so a service restart or USB re-enumeration does not put a disabled SIM back on the network.
-- While a line is disabled, SMS polling and health probes are paused and automatic health recovery cannot re-enable the radio. Outgoing SMS is rejected.
-- A module that does not implement `AT+CFUN` reports the failure in the web interface. Use the AT console on the line page to inspect the module's supported commands.
+- The desired state is stored in SQLite (`sim_cards.airplane_mode`) and applied before the rest of modem initialization, so a disabled line stops the radio early in a service restart. A serial reconnection also restores airplane mode.
+- While a line is disabled, SMS polling pauses and health probes only verify the radio state. The health check re-disables the radio if the module rebooted back to full functionality, and automatic health recovery cannot re-enable it. Outgoing SMS is rejected.
+- The disable command is verified with `AT+CFUN?` when the module supports the readback. A module that does not implement `AT+CFUN` reports the failure in the web interface; use the AT console on the line page to inspect the module's supported commands.
+- Commands sent through the AT console are not tracked by the airplane-mode state; the next health check restores the desired state if the radio was changed there.
 
 ## License
 

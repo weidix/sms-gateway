@@ -125,8 +125,25 @@
     }
   }
 
+  // Reads the line directly instead of going through refreshHealth, whose
+  // in-flight guard can otherwise leave the old airplane state on screen.
   async function reloadAirplaneMode() {
-    await Promise.allSettled([refreshHealth({ quiet: true }), reloadCards()]);
+    const id = loadedId;
+    const [infoResult, cardsResult] = await Promise.allSettled([api.simInfo(id), api.simCards()]);
+    if (id !== loadedId) return;
+
+    if (infoResult.status === 'fulfilled') {
+      sim = infoResult.value;
+      error = null;
+      notFound = false;
+    } else if (infoResult.reason?.status === 404) {
+      notFound = true;
+      sim = null;
+    }
+
+    if (cardsResult.status === 'fulfilled' && Array.isArray(cardsResult.value)) {
+      cards = cardsResult.value;
+    }
   }
 
   async function refreshInbox() {
